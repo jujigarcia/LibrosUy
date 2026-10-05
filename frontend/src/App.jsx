@@ -1,247 +1,280 @@
-import { useState } from "react";
-import { Search, MapPin, BookOpen, Sparkles, Home, X } from "lucide-react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import React, { useState } from 'react';
+import { Search, MapPin, Phone, BookOpen, Bookmark, Star } from 'lucide-react';
+import StoreMap from './StoreMap';
 
-// Fix for default map marker icons in React
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
-  iconUrl: require("leaflet/dist/images/marker-icon.png"),
-  shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
-});
+export default function App() {
+  const [activeTab, setActiveTab] = useState('home');
+  const [searchQuery, setSearchQuery] = useState('');
 
-// ---------- Estilos compartidos ----------
-const COLORS = {
-  bg: "#F7F0FB",
-  card: "#FFFCFF",
-  cardBorder: "#E7D6F0",
-  violet: "#7C4FA6",
-  violetDark: "#5B3782",
-  pink: "#E56FA0",
-  pinkSoft: "#F6D3E4",
-  text: "#3D2A52",
-  textMuted: "#8776A0",
-};
-
-function Pill({ active, onClick, children, icon: Icon }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        background: active ? COLORS.violet : "transparent",
-        color: active ? "#fff" : COLORS.violetDark,
-        border: `1.5px solid ${active ? COLORS.violet : COLORS.cardBorder}`,
-        borderRadius: 20,
-        padding: "7px 16px",
-        fontSize: 14,
-        fontWeight: 600,
-        cursor: "pointer",
-        fontFamily: "'IBM Plex Sans', sans-serif",
-      }}
-    >
-      {Icon && <Icon size={14} />}
-      {children}
-    </button>
-  );
-}
-
-// ---------- Vistas ----------
-
-function HomeView() {
-  return (
-    <section style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "56px 24px", gap: 12 }}>
-      <h1 className="serif" style={{ fontSize: "clamp(30px, 5vw, 46px)", lineHeight: 1.15, fontWeight: 600, margin: 0, color: COLORS.text, textAlign: "center" }}>
-        Bienvenido a LibrosUY
-      </h1>
-      <svg viewBox="0 0 420 320" style={{ width: "min(560px, 80vw)", height: "auto", opacity: 0.14, pointerEvents: "none" }}>
-        <path d="M210 44 C 170 20, 90 12, 30 26 L 30 268 C 90 254, 170 262, 210 286 Z" fill="none" stroke={COLORS.violetDark} strokeWidth="6" strokeLinejoin="round" />
-        <path d="M210 44 C 250 20, 330 12, 390 26 L 390 268 C 330 254, 250 262, 210 286 Z" fill="none" stroke={COLORS.violetDark} strokeWidth="6" strokeLinejoin="round" />
-        <line x1="210" y1="44" x2="210" y2="286" stroke={COLORS.violetDark} strokeWidth="5" />
-        {[70, 100, 130].map((y) => <line key={"l" + y} x1="55" y1={y} x2="185" y2={y - 10} stroke={COLORS.violetDark} strokeWidth="3" strokeLinecap="round" />)}
-        {[70, 100, 130].map((y) => <line key={"r" + y} x1="235" y1={y - 10} x2="365" y2={y} stroke={COLORS.violetDark} strokeWidth="3" strokeLinecap="round" />)}
-      </svg>
-    </section>
-  );
-}
-
-function BuscadorView() {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [matchedGenres, setMatchedGenres] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
-
-  async function handleSearch(e) {
-    e.preventDefault();
-    if (!query.trim()) return;
-
-    setLoading(true);
-    setSearched(true);
-
-    try {
-      const response = await fetch(`http://127.0.0.1:8000/api/search?title=${encodeURIComponent(query)}`);
-      const data = await response.json();
-
-      setResults(data.stores || []);
-      setMatchedGenres(data.matched_genres || []);
-    } catch (error) {
-      console.error("Error fetching data from backend:", error);
-      setResults([]);
-    } finally {
-      setLoading(false);
+  const sampleStores = [
+    {
+      id: 1,
+      name: "Librería Puro Verso",
+      address: "Sarandí 675, Ciudad Vieja",
+      city: "Montevideo",
+      phone: "+598 2915 2589",
+      tags: ["Clásicos", "Historia", "Café Literario"],
+      featured: true
+    },
+    {
+      id: 2,
+      name: "Escaramuza Libros",
+      address: "Dr. Pablo de María 1185, Cordón",
+      city: "Montevideo",
+      phone: "+598 2401 3475",
+      tags: ["Literatura Infantil", "Filosofía", "Café"],
+      featured: true
+    },
+    {
+      id: 3,
+      name: "Bookshop Pocitos",
+      address: "Av. Brasil 2831, Pocitos",
+      city: "Montevideo",
+      phone: "+598 2707 1515",
+      tags: ["Novedades", "Bestsellers", "Juvenil"],
+      featured: false
     }
-  }
+  ];
+
+  const filteredStores = sampleStores.filter(store => {
+    const matchesSearch = store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          store.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          store.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesSearch;
+  });
 
   return (
-    <section style={{ padding: "40px 24px 64px", maxWidth: 880, margin: "0 auto" }}>
-      <h1 className="serif" style={{ fontSize: "clamp(24px, 4vw, 34px)", fontWeight: 600, margin: "0 0 10px", color: COLORS.text }}>
-        Buscá un libro
-      </h1>
-      <p style={{ fontSize: 15, color: COLORS.textMuted, margin: "0 0 28px", maxWidth: 520 }}>
-        Escribí un título o autor. Identificamos el género y te mostramos qué librerías uruguayas se especializan en él.
-      </p>
+    <div style={{ 
+      minHeight: '100vh', 
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      position: 'relative',
+      background: activeTab === 'home' 
+        ? 'radial-gradient(circle at 30% 50%, #fdf4ff 0%, #fbcfe8 35%, #e9d5ff 70%, #ecfccb 100%)'
+        : '#f9fafb'
+    }}>
+      
+      {/* Navigation Bar */}
+      <header style={{ 
+        backgroundColor: activeTab === 'home' ? 'transparent' : '#ffffff', 
+        borderBottom: activeTab === 'home' ? 'none' : '1px solid #e9d5ff', 
+        position: activeTab === 'home' ? 'absolute' : 'sticky', 
+        top: 0, 
+        left: 0,
+        right: 0,
+        zIndex: 1000, 
+        padding: '30px 4%' 
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          
+          <div 
+            onClick={() => setActiveTab('home')}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+          >
+            {/* Default logo in top left */}
+            <BookOpen style={{ color: '#374151' }} size={28} strokeWidth={1} />
+            <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#374151' }}>LibrosUy</span>
+          </div>
 
-      <form onSubmit={handleSearch} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ flex: "1 1 320px", display: "flex", alignItems: "center", gap: 10, background: COLORS.card, border: `2px solid ${COLORS.violet}`, borderRadius: 14, padding: "12px 16px" }}>
-          <Search size={18} color={COLORS.violet} style={{ flexShrink: 0 }} />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ej: Fourth Wing, Harry Potter, Dune..."
-            style={{ border: "none", background: "transparent", fontSize: 16, width: "100%", fontFamily: "'IBM Plex Sans', sans-serif", color: COLORS.text }}
-          />
+          <nav style={{ display: 'flex', gap: '32px' }}>
+            <button 
+              onClick={() => setActiveTab('explore')}
+              style={{
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: '#374151',
+                fontWeight: 800,
+                fontSize: '1rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                padding: 0
+              }}
+            >
+              Explorar Librerías
+            </button>
+            <button 
+              onClick={() => setActiveTab('genres')}
+              style={{
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: '#374151',
+                fontWeight: 800,
+                fontSize: '1rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                padding: 0
+              }}
+            >
+              Buscar por Género
+            </button>
+            <button 
+              onClick={() => setActiveTab('saved')}
+              style={{
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: '#374151',
+                fontWeight: 800,
+                fontSize: '1rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                padding: 0
+              }}
+            >
+              Mi Lista
+            </button>
+          </nav>
         </div>
-        <button type="submit" style={{ background: COLORS.violet, color: "#fff", border: "none", borderRadius: 14, padding: "0 28px", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "'IBM Plex Sans', sans-serif" }}>
-          {loading ? "Buscando..." : "Buscar"}
-        </button>
-      </form>
+      </header>
 
-      {searched && !loading && (
-        <div style={{ marginTop: 36 }}>
-          {matchedGenres.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <span style={{ fontSize: 13, color: COLORS.textMuted }}>Géneros detectados: </span>
-              {matchedGenres.map((g) => (
-                <span key={g} style={{ background: COLORS.pinkSoft, color: COLORS.violetDark, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, marginLeft: 6 }}>
-                  {g}
-                </span>
-              ))}
+      {/* Tab 0: Home */}
+      {activeTab === 'home' && (
+        <main style={{ 
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 8%',
+          position: 'relative'
+        }}>
+          
+          {/* Left Column: Typography & Branding */}
+          <div style={{ flex: '1 1 50%', display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '40px' }}>
+            
+            {/* Stylized Center Logo */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px', color: '#374151' }}>
+              <span style={{ fontSize: '5.5rem', fontWeight: 800, transform: 'rotate(-8deg)', letterSpacing: '-0.03em' }}>
+                Libros
+              </span>
+              <span style={{ fontSize: '5.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', marginTop: '-30px', marginLeft: '60px', letterSpacing: '-0.03em' }}>
+                <span style={{ fontSize: '4.5rem', marginRight: '8px', transform: 'translateY(5px)' }}>✳</span>Uy
+              </span>
+            </div>
+            
+            {/* Marketing Phrase */}
+            <h1 style={{ 
+              fontSize: '4.2rem', 
+              fontWeight: 300, 
+              color: '#374151', 
+              lineHeight: '1.05', 
+              margin: 0,
+              letterSpacing: '-0.03em',
+              textAlign: 'center'
+            }}>
+            La mejor forma de encontrar<br />tu libro
+            </h1>
+          </div>
+
+          {/* Right Column: Line Art Book Graphic + Abstract Figure */}
+          <div style={{ flex: '1 1 50%', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+            
+            <svg viewBox="0 0 200 200" style={{ position: 'absolute', width: '650px', height: '650px', zIndex: 0, opacity: 0.7 }}>
+              <path d="M 0 80 Q 50 20 100 80 T 200 80" stroke="#ffffff" strokeWidth="1.5" fill="none" />
+              <path d="M 0 100 Q 50 40 100 100 T 200 100" stroke="#ffffff" strokeWidth="1.5" fill="none" />
+              <path d="M 0 120 Q 50 60 100 120 T 200 120" stroke="#ffffff" strokeWidth="1.5" fill="none" />
+              <path d="M 0 140 Q 50 80 100 140 T 200 140" stroke="#ffffff" strokeWidth="1.5" fill="none" />
+              <path d="M 0 160 Q 50 100 100 160 T 200 160" stroke="#ffffff" strokeWidth="1.5" fill="none" />
+              <path d="M 80 0 Q 20 50 80 100 T 80 200" stroke="#ffffff" strokeWidth="1.5" fill="none" />
+              <path d="M 100 0 Q 40 50 100 100 T 100 200" stroke="#ffffff" strokeWidth="1.5" fill="none" />
+              <path d="M 120 0 Q 60 50 120 100 T 120 200" stroke="#ffffff" strokeWidth="1.5" fill="none" />
+              <path d="M 140 0 Q 80 50 140 100 T 140 200" stroke="#ffffff" strokeWidth="1.5" fill="none" />
+            </svg>
+
+            <BookOpen size={500} strokeWidth={1} color="#1f2937" style={{ zIndex: 1, position: 'relative', transform: 'rotate(8deg)' }} />
+          </div>
+
+          {/* Disclaimer anchored to bottom left */}
+          <p style={{ 
+            position: 'absolute',
+            bottom: '40px',
+            left: '4%',
+            fontSize: '0.75rem', 
+            fontWeight: 800, 
+            color: '#374151', 
+            textTransform: 'uppercase', 
+            letterSpacing: '0.05em',
+            margin: 0
+          }}>
+            STOCK ACTUALIZADO DEPENDIENDO DE LAS LIBRERIAS
+          </p>
+        </main>
+      )}
+
+      {/* Rest of the Tabs */}
+      {activeTab !== 'home' && (
+        <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
+          
+          {activeTab === 'explore' && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#4c1d95', margin: 0 }}>Mapa de Librerías en Uruguay</h2>
+              </div>
+              
+              <div style={{ maxWidth: '600px', marginBottom: '24px', display: 'flex', gap: '8px', backgroundColor: '#ffffff', padding: '6px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+                <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '12px', color: '#9ca3af' }}>
+                  <Search size={20} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Buscar librería por nombre o ubicación..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ flex: 1, border: 'none', outline: 'none', padding: '10px 8px', fontSize: '1rem' }}
+                />
+              </div>
+
+              <StoreMap />
+
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#6b21a8', marginBottom: '16px', marginTop: '40px' }}>
+                Directorio de Librerías
+              </h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                {filteredStores.map(store => (
+                  <div key={store.id} style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e9d5ff', padding: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                      <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#374151' }}>{store.name}</h4>
+                      {store.featured && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', backgroundColor: '#fef08a', color: '#854d0e', padding: '4px 8px', borderRadius: '9999px', fontWeight: 600 }}>
+                          <Star size={10} fill="#854d0e" /> Destacada
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', fontSize: '0.9rem', color: '#6b7280' }}>
+                      <MapPin size={16} color="#c084fc" /> {store.address}
+                    </p>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', fontSize: '0.9rem', color: '#6b7280' }}>
+                      <Phone size={16} color="#c084fc" /> {store.phone}
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '16px' }}>
+                      {store.tags.map((tag, i) => (
+                        <span key={i} style={{ fontSize: '0.75rem', backgroundColor: '#f3e8ff', color: '#7e22ce', padding: '4px 10px', borderRadius: '6px', fontWeight: 500 }}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          <div style={{ display: "grid", gap: 12 }}>
-            {results.length === 0 ? (
-              <p style={{ color: COLORS.textMuted, fontSize: 15 }}>
-                No encontramos librerías asociadas a las categorías de este libro.
+          {activeTab === 'genres' && (
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e9d5ff', padding: '60px 20px', textAlign: 'center' }}>
+              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#4c1d95', marginBottom: '12px' }}>Búsqueda por Género</h3>
+              <p style={{ color: '#6b7280', maxWidth: '500px', margin: '0 auto' }}>
+                Funcionalidad de búsqueda conectada a Google Books en desarrollo.
               </p>
-            ) : (
-              results.map((store) => (
-                <div key={store.name} style={{ background: COLORS.card, border: `1.5px solid ${COLORS.cardBorder}`, borderRadius: 14, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-                  <div>
-                    <div className="serif" style={{ fontSize: 18, fontWeight: 600, color: COLORS.text }}>
-                      {store.name}
-                    </div>
-                    <div style={{ fontSize: 13, color: COLORS.textMuted, marginTop: 4 }}>
-                      <MapPin size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-                      {store.address}, {store.city} ({store.department})
-                    </div>
-                  </div>
-                  <a
-                    href={`https://wa.me/${store.whatsapp}?text=Hola!%20Vi%20en%20LibrosUY%20que%20tienen%20libros%20de%20este%20género.%20¿Tienen%20disponible%20${encodeURIComponent(query)}?`}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ background: "#25D366", color: "#fff", textDecoration: "none", padding: "9px 16px", borderRadius: 10, fontWeight: 600, fontSize: 13 }}
-                  >
-                    Consultar por WhatsApp
-                  </a>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+            </div>
+          )}
+
+          {activeTab === 'saved' && (
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e9d5ff', padding: '60px 20px', textAlign: 'center' }}>
+              <Bookmark size={40} color="#854d0e" style={{ margin: '0 auto 24px auto', fill: '#fef08a' }} />
+              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#4c1d95', marginBottom: '12px' }}>Tu lista guardada</h3>
+              <p style={{ color: '#6b7280' }}>Aún no guardaste ninguna librería favorita.</p>
+            </div>
+          )}
+        </main>
       )}
-    </section>
-  );
-}
-
-function MapaView() {
-  const uruguayCenter = [-32.5228, -55.7658];
-  const activeStores = [
-    { id: 1, name: "Librería Puro Verso", lat: -34.9065, lng: -56.2023, city: "Montevideo", address: "Peatonal Sarandí 675" },
-    { id: 2, name: "Bookshop Canelones", lat: -34.5247, lng: -56.2801, city: "Canelones", address: "Treinta y Tres 550" },
-    { id: 3, name: "Librería Local", lat: -34.7167, lng: -55.9500, city: "Pando", address: "Centro Comercial" }
-  ];
-
-  return (
-    <section style={{ padding: "40px 24px 64px", maxWidth: 980, margin: "0 auto" }}>
-      <h1 className="serif" style={{ fontSize: "clamp(24px, 4vw, 34px)", fontWeight: 600, margin: "0 0 10px", color: COLORS.text }}>
-        Mapa de librerías
-      </h1>
-      <p style={{ fontSize: 15, color: COLORS.textMuted, margin: "0 0 28px", maxWidth: 560 }}>
-        Navegá por el mapa real para encontrar las librerías más cercanas a vos.
-      </p>
-
-      <div style={{ background: COLORS.card, border: `1.5px solid ${COLORS.cardBorder}`, borderRadius: 20, overflow: "hidden", height: "600px", width: "100%", position: "relative", zIndex: 1 }}>
-        <MapContainer center={uruguayCenter} zoom={7} style={{ height: "100%", width: "100%" }}>
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          {activeStores.map((store) => (
-            <Marker key={store.id} position={[store.lat, store.lng]}>
-              <Popup>
-                <div style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
-                  <strong style={{ fontSize: 14, color: COLORS.violetDark }}>{store.name}</strong><br/>
-                  <span style={{ fontSize: 12, color: COLORS.textMuted }}>{store.address}, {store.city}</span>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-        </MapContainer>
-      </div>
-    </section>
-  );
-}
-
-// ---------- Componente principal ----------
-export default function BuscaLibroUY() {
-  const [view, setView] = useState("home");
-
-  return (
-    <div style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "'IBM Plex Sans', sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
-        * { box-sizing: border-box; }
-        .serif { font-family: 'Fraunces', serif; }
-        input:focus, button:focus-visible { outline: 2px solid ${COLORS.violet}; outline-offset: 2px; }
-        ::selection { background: ${COLORS.pink}; color: #fff; }
-      `}</style>
-
-      <header style={{ borderBottom: `1.5px solid ${COLORS.cardBorder}`, padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, background: COLORS.card }}>
-        <button onClick={() => setView("home")} style={{ display: "flex", alignItems: "baseline", gap: 8, background: "none", border: "none", cursor: "pointer" }}>
-          <span className="serif" style={{ fontSize: 21, fontWeight: 700, color: COLORS.violet }}>LibrosUY</span>
-        </button>
-        <nav style={{ display: "flex", gap: 8 }}>
-          <Pill active={view === "home"} onClick={() => setView("home")} icon={Home}>Inicio</Pill>
-          <Pill active={view === "buscador"} onClick={() => setView("buscador")} icon={Search}>Buscador</Pill>
-          <Pill active={view === "mapa"} onClick={() => setView("mapa")} icon={MapPin}>Mapa</Pill>
-        </nav>
-      </header>
-
-      {view === "home" && <HomeView />}
-      {view === "buscador" && <BuscadorView />}
-      {view === "mapa" && <MapaView />}
-
-      <footer style={{ borderTop: `1.5px solid ${COLORS.cardBorder}`, padding: "20px 24px", textAlign: "center" }}>
-        <p style={{ fontSize: 12, color: COLORS.textMuted, margin: 0 }}>
-          Frontend conectado a FastAPI con mapas reales de Leaflet.
-        </p>
-      </footer>
     </div>
   );
 }
