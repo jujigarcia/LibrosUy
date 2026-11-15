@@ -45,6 +45,8 @@ class PoliteSession:
             if wait > 0:
                 time.sleep(wait)
             self._last_request = time.monotonic()
+            # Scrapers never need a session; Shopify rate-limits bots that keep its cookies
+            self.session.cookies.clear()
             resp = self.session.request(method, url, params=params, json=json, timeout=60)
             if resp.status_code == 429 or resp.status_code >= 500:
                 if attempt == retries:
@@ -87,7 +89,7 @@ GENRE_KEYWORDS = [
 ]
 
 
-def classify_genre(category_names, default_genre: str | None = None) -> str | None:
+def classify_genre(category_names, default_genre: str | None = None, raw_fallback: bool = True) -> str | None:
     """Maps a store's own category names to LibrosUy genre tags (comma-separated).
     Unrecognized categories fall back to the store's default genre (e.g. "Cómics" for a
     comic shop) or, without one, to the store's first category name."""
@@ -101,7 +103,7 @@ def classify_genre(category_names, default_genre: str | None = None) -> str | No
         return ", ".join(tags)[:100]
     if default_genre:
         return default_genre
-    return category_names[0][:100] if category_names else None
+    return category_names[0][:100] if category_names and raw_fallback else None
 
 
 def parse_uy_price(text) -> float | None:

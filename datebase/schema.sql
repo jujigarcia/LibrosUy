@@ -14,6 +14,7 @@ CREATE TABLE bookstores (
     name NVARCHAR(150) NOT NULL,
     website NVARCHAR(255) NULL,
     whatsapp VARCHAR(20) NULL, -- Formato internacional sin '+', ej. 59899123456
+    instagram NVARCHAR(100) NULL, -- Usuario de Instagram, sin '@'
     specialty NVARCHAR(255) NOT NULL,
     address NVARCHAR(255) NOT NULL,
     department NVARCHAR(100) NOT NULL,
@@ -72,12 +73,12 @@ INSERT INTO bookstores (name, website, specialty, address, department, latitude,
 (N'Escaramuza', 'escaramuza.com.uy', N'Catálogo General, Infantil, Café', N'Dr. Pablo de María 1185', N'Montevideo', -34.9080, -56.1712, 'web_scraper', 'twice_weekly', 1),
 (N'Isadora Libros', 'isadoralibros.com.uy', N'Cómics, Medicina, Ficción', N'José Ellauri 661', N'Montevideo', -34.9165, -56.1568, 'web_scraper', 'twice_weekly', 0),
 (N'Babilonia Libros', 'babilonia.uy', N'Usados, Raros, Agotados, Historia', N'Dr. Tristán Narvaja 1591', N'Montevideo', -34.9015, -56.1764, 'web_scraper', 'twice_weekly', 1),
-(N'El Virrey', 'libreriaelvirrey.com.uy', N'Bestsellers, Novedades, Ficción', N'21 de Setiembre', N'Montevideo', -34.9142, -56.1589, 'web_scraper', 'twice_weekly', 0),
+(N'El Virrey', 'www.libreriaelvirrey.com.uy', N'Bestsellers, Novedades, Ficción', N'21 de Setiembre', N'Montevideo', -34.9142, -56.1589, 'web_scraper', 'twice_weekly', 0),
 (N'Bookshop', 'bookshop.com.uy', N'Inglés, Catálogo General, Juvenil', N'José Enrique Rodó', N'Montevideo', -34.9048, -56.1742, 'web_scraper', 'twice_weekly', 1),
 (N'Mosca', 'mosca.com.uy', N'Literatura, Educativos, Escolares', N'Av. 18 de Julio', N'Montevideo', -34.9058, -56.1852, 'web_scraper', 'twice_weekly', 1),
 (N'Grupo Libros', 'grupolibros.com.uy', N'Catálogo General, Ficción', N'Tienda Online', N'Online', NULL, NULL, 'web_scraper', 'twice_weekly', 0),
 (N'Diomedes', 'librosleidos.com.uy', N'Usados, Raros, Clásicos', N'Tienda Online', N'Online', NULL, NULL, 'web_scraper', 'twice_weekly', 0),
-(N'Entrelibros', 'entrelibros.com.uy', N'Catálogo General, Novedades', N'Tienda Online', N'Online', NULL, NULL, 'web_scraper', 'twice_weekly', 0),
+(N'Entrelibros', NULL, N'Catálogo General, Novedades', N'San José de Mayo', N'San José', -34.3375, -56.7136, 'google_sheets', 'daily', 0),
 (N'Planetadelibros Uruguay', 'planetadelibros.com.uy', N'Editorial, Ficción, Juvenil, Romance', N'Tienda Online', N'Online', NULL, NULL, 'web_scraper', 'twice_weekly', 0),
 (N'Librería El Altillo', NULL, N'Catálogo General, Local', N'Ciudad de la Costa', N'Canelones', -34.8222, -55.9547, 'google_sheets', 'daily', 0),
 (N'Librería Ofipando', NULL, N'Catálogo General, Local, Escolares', N'Pando', N'Canelones', -34.7167, -55.9583, 'google_sheets', 'daily', 1),
@@ -115,4 +116,14 @@ INSERT INTO inventory_stock (bookstore_id, book_id, price_uyu, stock_quantity, c
 (6, 3, 1050.00, 6, N'Nuevo', 'https://bookshop.com.uy'),
 (21, 4, 490.00, 8, N'Nuevo', 'https://lecturascomics.com.uy'),
 (23, 4, 490.00, 3, N'Nuevo', 'https://francacomics.uy');
+GO
+-- WhatsApp e Instagram publicados por las librerías (ver migrations/003 y 004)
+UPDATE bookstores SET whatsapp = '59899957216' WHERE website = 'babilonia.uy';
+UPDATE bookstores SET whatsapp = '59897301685' WHERE website = 'bookshop.com.uy';
+UPDATE bookstores SET whatsapp = '59891665568' WHERE website = 'escaramuza.com.uy';
+UPDATE bookstores SET whatsapp = '59899295803' WHERE website = 'lecturascomics.com.uy';
+UPDATE bookstores SET whatsapp = '59896057981' WHERE website = 'librerialannister.com';
+UPDATE bookstores SET whatsapp = '59892221888' WHERE website = 'mosca.com.uy';
+UPDATE bookstores SET whatsapp = '59893990904' WHERE website = 'www.libreriaelvirrey.com.uy';
+UPDATE bookstores SET instagram = 'entre_libros_sanjose' WHERE name = N'Entrelibros';
 GO

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Globe, BookOpen, Bookmark, Star, Trash2, RefreshCw, MessageCircle } from 'lucide-react';
+import { Search, MapPin, Globe, BookOpen, Bookmark, Star, Trash2, RefreshCw, MessageCircle, AlertTriangle, FileSpreadsheet, Instagram, Info } from 'lucide-react';
 import StoreMap from './StoreMap';
 
 // Fallback list of all 29 bookstores so the UI works even before the backend is started
@@ -8,12 +8,12 @@ const FALLBACK_STORES = [
   { id: 2, name: "Escaramuza", website: "escaramuza.com.uy", specialty: "Catálogo General, Infantil, Café", tags: ["Catálogo General", "Infantil", "Café"], address: "Dr. Pablo de María 1185", department: "Montevideo", latitude: -34.9080, longitude: -56.1712, ingestion_method: "web_scraper", featured: true },
   { id: 3, name: "Isadora Libros", website: "isadoralibros.com.uy", specialty: "Cómics, Medicina, Ficción", tags: ["Cómics", "Medicina", "Ficción"], address: "José Ellauri 661", department: "Montevideo", latitude: -34.9165, longitude: -56.1568, ingestion_method: "web_scraper", featured: false },
   { id: 4, name: "Babilonia Libros", website: "babilonia.uy", specialty: "Usados, Raros, Agotados", tags: ["Usados", "Raros", "Agotados"], address: "Dr. Tristán Narvaja 1591", department: "Montevideo", latitude: -34.9015, longitude: -56.1764, ingestion_method: "web_scraper", featured: true },
-  { id: 5, name: "El Virrey", website: "libreriaelvirrey.com.uy", specialty: "Bestsellers, Novedades", tags: ["Bestsellers", "Novedades"], address: "21 de Setiembre", department: "Montevideo", latitude: -34.9142, longitude: -56.1589, ingestion_method: "web_scraper", featured: false },
+  { id: 5, name: "El Virrey", website: "www.libreriaelvirrey.com.uy", specialty: "Bestsellers, Novedades", tags: ["Bestsellers", "Novedades"], address: "21 de Setiembre", department: "Montevideo", latitude: -34.9142, longitude: -56.1589, ingestion_method: "web_scraper", featured: false },
   { id: 6, name: "Bookshop", website: "bookshop.com.uy", specialty: "Inglés, Catálogo General, Juvenil", tags: ["Inglés", "Catálogo General", "Juvenil"], address: "José Enrique Rodó", department: "Montevideo", latitude: -34.9048, longitude: -56.1742, ingestion_method: "web_scraper", featured: true },
   { id: 7, name: "Mosca", website: "mosca.com.uy", specialty: "Literatura, Educativos, Escolares", tags: ["Literatura", "Educativos", "Escolares"], address: "Av. 18 de Julio", department: "Montevideo", latitude: -34.9058, longitude: -56.1852, ingestion_method: "web_scraper", featured: true },
   { id: 8, name: "Grupo Libros", website: "grupolibros.com.uy", specialty: "Catálogo General", tags: ["Catálogo General"], address: "Tienda Online", department: "Online", latitude: null, longitude: null, ingestion_method: "web_scraper", featured: false },
   { id: 9, name: "Diomedes", website: "librosleidos.com.uy", specialty: "Usados, Raros", tags: ["Usados", "Raros"], address: "Tienda Online", department: "Online", latitude: null, longitude: null, ingestion_method: "web_scraper", featured: false },
-  { id: 10, name: "Entrelibros", website: "entrelibros.com.uy", specialty: "Catálogo General", tags: ["Catálogo General"], address: "Tienda Online", department: "Online", latitude: null, longitude: null, ingestion_method: "web_scraper", featured: false },
+  { id: 10, name: "Entrelibros", website: null, instagram: "entre_libros_sanjose", specialty: "Catálogo General", tags: ["Catálogo General"], address: "San José de Mayo", department: "San José", latitude: -34.3375, longitude: -56.7136, ingestion_method: "google_sheets", featured: false },
   { id: 11, name: "Planetadelibros Uruguay", website: "planetadelibros.com.uy", specialty: "Editorial, Ficción, Juvenil", tags: ["Editorial", "Ficción", "Juvenil"], address: "Tienda Online", department: "Online", latitude: null, longitude: null, ingestion_method: "web_scraper", featured: false },
   { id: 12, name: "Librería El Altillo", website: null, specialty: "Catálogo General, Local", tags: ["Catálogo General", "Local"], address: "Ciudad de la Costa", department: "Canelones", latitude: -34.8222, longitude: -55.9547, ingestion_method: "google_sheets", featured: false },
   { id: 13, name: "Librería Ofipando", website: null, specialty: "Catálogo General, Local, Escolares", tags: ["Catálogo General", "Local", "Escolares"], address: "Pando", department: "Canelones", latitude: -34.7167, longitude: -55.9583, ingestion_method: "google_sheets", featured: true },
@@ -53,6 +53,48 @@ const buildWhatsAppLink = (raw, message) => {
   const number = toWhatsAppNumber(raw);
   return number ? `https://wa.me/${number}?text=${encodeURIComponent(message)}` : null;
 };
+
+// How much we can trust a store's stock on LibrosUy (stock_source from the API)
+const STOCK_NOTICES = {
+  verified: {
+    Icon: RefreshCw,
+    label: 'Stock en línea',
+    color: '#166534',
+    background: '#dcfce7',
+    detail: 'Su stock se sincroniza con LibrosUy.',
+    searchDetail: 'No figura en su stock en línea, pero podés consultar si lo consiguen por encargo.'
+  },
+  unverified: {
+    Icon: AlertTriangle,
+    label: 'Stock no verificado',
+    color: '#92400e',
+    background: '#fef3c7',
+    detail: 'No podemos leer su stock en línea: consultá disponibilidad directamente.',
+    searchDetail: 'No podemos confirmar su stock: puede tener el libro. Consultales antes de ir.'
+  },
+  pending_sheet: {
+    Icon: FileSpreadsheet,
+    label: 'Planilla de stock pendiente',
+    color: '#1e40af',
+    background: '#dbeafe',
+    detail: 'Todavía no recibimos su planilla de stock: consultá disponibilidad directamente.',
+    searchDetail: 'Todavía no tenemos su planilla de stock: puede tener el libro. Consultales antes de ir.'
+  }
+};
+
+function StockNotice({ source, inSearch = false }) {
+  const notice = STOCK_NOTICES[source];
+  if (!notice) return null;
+  const { Icon } = notice;
+  return (
+    <div style={{ marginTop: '12px', backgroundColor: notice.background, color: notice.color, borderRadius: '8px', padding: '8px 10px', fontSize: '0.78rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+        <Icon size={13} /> {notice.label}
+      </div>
+      <div style={{ marginTop: '2px', lineHeight: 1.35 }}>{inSearch ? notice.searchDetail : notice.detail}</div>
+    </div>
+  );
+}
 
 function WhatsAppButton({ number, message }) {
   const link = buildWhatsAppLink(number, message);
@@ -241,9 +283,14 @@ export default function App() {
                 {store.website}
               </a>
             </p>
-          ) : (
-            <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0', fontSize: '0.82rem', color: '#9ca3af' }}>
-              <RefreshCw size={14} color="#c084fc" /> Stock sincronizado vía Planilla / CSV
+          ) : null}
+
+          {store.instagram && (
+            <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0', fontSize: '0.88rem' }}>
+              <Instagram size={15} color="#c084fc" />
+              <a href={`https://www.instagram.com/${store.instagram}/`} target="_blank" rel="noreferrer" style={{ color: '#7e22ce', textDecoration: 'none', fontWeight: 600 }}>
+                @{store.instagram}
+              </a>
             </p>
           )}
         </div>
@@ -255,6 +302,8 @@ export default function App() {
             </span>
           ))}
         </div>
+
+        <StockNotice source={store.stock_source} inSearch={Boolean(bookQuery)} />
 
         <div style={{ marginTop: '14px' }}>
           <WhatsAppButton number={store.whatsapp} message={whatsappMessage} />
@@ -584,6 +633,27 @@ export default function App() {
                         </span>
                       ))}
                     </div>
+
+                    {(() => {
+                      const recs = searchResult.recommended_stores || [];
+                      const unconfirmed = recs.filter((s) => s.stock_source && s.stock_source !== 'verified');
+                      const pendingSheets = unconfirmed.filter((s) => s.stock_source === 'pending_sheet').length;
+                      if (unconfirmed.length === 0) return null;
+                      return (
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', backgroundColor: '#fffbeb', border: '1px solid #fde68a', color: '#78350f', borderRadius: '12px', padding: '14px 16px', marginBottom: '18px', fontSize: '0.9rem', lineHeight: 1.45 }}>
+                          <Info size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+                          <div>
+                            <strong>
+                              {unconfirmed.length === 1
+                                ? '1 de estas librerías puede tener el libro, pero no podemos confirmar su stock.'
+                                : `${unconfirmed.length} de estas librerías pueden tener el libro, pero no podemos confirmar su stock.`}
+                            </strong>{' '}
+                            {pendingSheets > 0 && `${pendingSheets} todavía no nos enviaron su planilla de stock. `}
+                            Escribiles por WhatsApp antes de ir.
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
                       {(searchResult.recommended_stores || []).map((store) => renderStoreCard(store, searchResult.query))}

@@ -48,6 +48,22 @@ app.add_middleware(
 )
 
 
+# Where a store's stock comes from, so the UI can warn when it cannot be confirmed:
+#   verified      -> synced (scraper or sheet) in the last 14 days
+#   pending_sheet -> store without e-commerce whose stock sheet we don't have yet
+#   unverified    -> has a website but its stock can't be read (blocked, no catalog, ...)
+STOCK_SOURCE_SQL = """
+    CASE
+        WHEN EXISTS (SELECT 1 FROM sync_logs l
+                     WHERE l.bookstore_id = s.bookstore_id
+                       AND l.status IN ('success', 'partial')
+                       AND l.executed_at >= DATEADD(day, -14, GETDATE())) THEN 'verified'
+        WHEN s.ingestion_method = 'google_sheets' THEN 'pending_sheet'
+        ELSE 'unverified'
+    END
+"""
+
+
 def split_tags(specialty):
     return [t.strip() for t in (specialty or "").split(",") if t.strip()]
 
@@ -111,12 +127,13 @@ def get_stores():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT bookstore_id, name, website, specialty, address, department,
-                   latitude, longitude, ingestion_method, sync_frequency, featured, whatsapp
-            FROM bookstores
-            WHERE is_active = 1
-            ORDER BY featured DESC, name ASC
+        cursor.execute(f"""
+            SELECT s.bookstore_id, s.name, s.website, s.specialty, s.address, s.department,
+                   s.latitude, s.longitude, s.ingestion_method, s.sync_frequency, s.featured, s.whatsapp,
+                   s.instagram, {STOCK_SOURCE_SQL} AS stock_source
+            FROM bookstores s
+            WHERE s.is_active = 1
+            ORDER BY s.featured DESC, s.name ASC
         """)
         rows = cursor.fetchall()
         stores = [
@@ -133,7 +150,9 @@ def get_stores():
                 "ingestion_method": row[8],
                 "sync_frequency": row[9],
                 "featured": bool(row[10]),
-                "whatsapp": row[11]
+                "whatsapp": row[11],
+                "instagram": row[12],
+                "stock_source": row[13]
             }
             for row in rows
         ]
@@ -219,13 +238,17 @@ def search_book(title: str):
             matched_tags.add(GENERAL_TAG)
 
         matched_tags = sorted(matched_tags)
-        conditions = " OR ".join(["specialty LIKE ?" for _ in matched_tags])
+        conditions = " OR ".join(["s.specialty LIKE ?" for _ in matched_tags])
         params = [f"%{escape_like(tag)}%" for tag in matched_tags]
+        # Stores that can't confirm stock come first: they may have the book even if it's not indexed
         cursor.execute(f"""
-            SELECT bookstore_id, name, website, specialty, address, department, featured, whatsapp
-            FROM bookstores
-            WHERE is_active = 1 AND ({conditions})
-            ORDER BY featured DESC, name ASC
+            SELECT * FROM (
+                SELECT s.bookstore_id, s.name, s.website, s.specialty, s.address, s.department,
+                       s.featured, s.whatsapp, s.instagram, {STOCK_SOURCE_SQL} AS stock_source
+                FROM bookstores s
+                WHERE s.is_active = 1 AND ({conditions})
+            ) r
+            ORDER BY CASE r.stock_source WHEN 'verified' THEN 1 ELSE 0 END, r.featured DESC, r.name ASC
         """, params)
         recommended_stores = [
             {
@@ -237,7 +260,9 @@ def search_book(title: str):
                 "address": r[4],
                 "department": r[5],
                 "featured": bool(r[6]),
-                "whatsapp": r[7]
+                "whatsapp": r[7],
+                "instagram": r[8],
+                "stock_source": r[9]
             }
             for r in cursor.fetchall()
         ]

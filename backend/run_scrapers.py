@@ -22,7 +22,7 @@ from scrapers.common import StockWriter
 # Cualquier clave extra (default_condition, default_genre, category_uid, ...) se pasa al scraper.
 #
 # Sin scraper (ver README): Franca Comics y Planeta bloquean bots en robots.txt; Librería Vila
-# responde 403 a bots; El Virrey: el dominio no existe; Babilonia (tienda Hostinger) y Rizoma
+# responde 403 a bots; Babilonia (tienda Hostinger) y Rizoma
 # no exponen un catálogo legible desde su propio sitio; Entrelibros es un blog, no una tienda.
 SOURCES = [
     # WooCommerce (Store API)
@@ -40,6 +40,7 @@ SOURCES = [
      "category_uid": "Mzc0"},
     # Fenicio
     {"website": "grupolibros.com.uy", "platform": "fenicio", "base_url": "https://grupolibros.com.uy"},
+    {"website": "www.libreriaelvirrey.com.uy", "platform": "fenicio", "base_url": "https://www.libreriaelvirrey.com.uy"},
     # Catálogo propio (HTML)
     {"website": "escaramuza.com.uy", "platform": "escaramuza", "base_url": "https://escaramuza.com.uy"},
     {"website": "laskaramazov.com.uy", "platform": "virtuemart", "base_url": "https://laskaramazov.com.uy"},

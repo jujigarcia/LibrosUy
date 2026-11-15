@@ -64,12 +64,18 @@ def scrape(base_url: str, writer, *, delay: float = 1.0, max_pages: int | None =
             v = variants[0]
             price = (v.get("price") or 0) / 100  # Shopify meta prices are in cents
             sold_out = _card_sold_out(soup, p["handle"])
+            title = _title_from_variant(v, p["handle"])
+            author = None
+            if " | " in title:  # Some stores write "TITLE | Author"
+                title, author = [part.strip(" -|") for part in title.split(" | ", 1)]
             writer.upsert_offer(
                 external_id=str(p["id"]),
-                isbn=clean_isbn(v.get("sku")),
-                title=_title_from_variant(v, p["handle"]),
-                author=None,
-                genre=classify_genre([p.get("type") or ""] if p.get("type") else [], default_genre),
+                # Some stores keep the ISBN in the SKU, others use it as the product handle
+                isbn=clean_isbn(v.get("sku")) or clean_isbn(p["handle"]),
+                title=title or p["handle"],
+                author=author or None,
+                # "type" is free text (often the publisher), so only keyword matches count
+                genre=classify_genre([p.get("type") or ""], default_genre, raw_fallback=False),
                 cover_url=None,
                 price_uyu=price or None,
                 stock_quantity=stock_from_label("Agotado" if sold_out else None),
