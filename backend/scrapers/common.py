@@ -30,6 +30,12 @@ class PoliteSession:
         return self.robots.can_fetch(USER_AGENT, url)
 
     def get(self, path: str, params=None, retries: int = 3):
+        return self._request("GET", path, params=params, retries=retries)
+
+    def post(self, path: str, json=None, retries: int = 3):
+        return self._request("POST", path, json=json, retries=retries)
+
+    def _request(self, method: str, path: str, params=None, json=None, retries: int = 3):
         url = path if path.startswith("http") else f"{self.base_url}{path}"
         if not self.allowed(url):
             raise PermissionError(f"robots.txt no permite acceder a {urlparse(url).path}")
@@ -39,7 +45,7 @@ class PoliteSession:
             if wait > 0:
                 time.sleep(wait)
             self._last_request = time.monotonic()
-            resp = self.session.get(url, params=params, timeout=30)
+            resp = self.session.request(method, url, params=params, json=json, timeout=60)
             if resp.status_code == 429 or resp.status_code >= 500:
                 if attempt == retries:
                     resp.raise_for_status()
@@ -96,6 +102,34 @@ def classify_genre(category_names, default_genre: str | None = None) -> str | No
     if default_genre:
         return default_genre
     return category_names[0][:100] if category_names else None
+
+
+def parse_uy_price(text) -> float | None:
+    """Parses Uruguayan-formatted prices: '$U 1.341', 'UYU 841,50', '$1.090' -> float (None if 0/invalid)."""
+    if text is None:
+        return None
+    if isinstance(text, (int, float)):
+        return float(text) or None
+    match = re.search(r"\d[\d.,]*", str(text))
+    if not match:
+        return None
+    number = match.group().rstrip(".,")
+    if "," in number:
+        number = number.replace(".", "").replace(",", ".")
+    elif re.fullmatch(r"\d{1,3}(\.\d{3})+", number):
+        number = number.replace(".", "")
+    try:
+        return float(number) or None
+    except ValueError:
+        return None
+
+
+def stock_from_label(label: str | None, default: int = 1) -> int:
+    """Maps availability labels ('Disponible', 'Agotado', 'Sin stock') to a quantity."""
+    norm = _normalize(label or "")
+    if any(k in norm for k in ("agotad", "sin stock", "no disponible", "sold out", "out of stock", "outofstock")):
+        return 0
+    return default
 
 
 def clean_isbn(raw: str) -> str | None:

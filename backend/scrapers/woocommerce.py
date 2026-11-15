@@ -62,7 +62,7 @@ def _parse_product(p: dict, default_condition: str, default_genre: str | None, u
 
 def scrape(base_url: str, writer, *, delay: float = 1.0, max_pages: int | None = None,
            default_condition: str = "Nuevo", default_genre: str | None = None,
-           use_categories: bool = True, progress=print):
+           use_categories: bool = True, progress=print, **_):
     """Walks the catalog page by page and upserts each product. Returns (processed, complete)."""
     http = PoliteSession(base_url, delay=delay)
     page, total_pages, processed = 1, None, 0

@@ -15,23 +15,50 @@ import sys
 import time
 
 from db import get_db_connection
-from scrapers import woocommerce
+from scrapers import escaramuza, fenicio, magento, shopify, virtuemart, woocommerce
 from scrapers.common import StockWriter
 
 # Librerías cuyo sitio permite leer el catálogo (robots.txt revisado).
-# Pendientes: Shopify (Vanir, Isadora, Librería Montevideo, Pocho), Fenicio (Grupo Libros)
-# y sitios sin plataforma detectada. Franca Comics y Planeta bloquean bots en robots.txt.
+# Cualquier clave extra (default_condition, default_genre, category_uid, ...) se pasa al scraper.
+#
+# Sin scraper (ver README): Franca Comics y Planeta bloquean bots en robots.txt; Librería Vila
+# responde 403 a bots; El Virrey: el dominio no existe; Babilonia (tienda Hostinger) y Rizoma
+# no exponen un catálogo legible desde su propio sitio; Entrelibros es un blog, no una tienda.
 SOURCES = [
+    # WooCommerce (Store API)
     {"website": "puroverso.uy", "platform": "woocommerce", "base_url": "https://puroverso.uy"},
     {"website": "lecturascomics.com.uy", "platform": "woocommerce", "base_url": "https://lecturascomics.com.uy",
      "default_genre": "Cómics"},
     {"website": "librerialannister.com", "platform": "woocommerce", "base_url": "https://librerialannister.com"},
     # Sus categorías son genéricas ("Libros, Revistas y Comics"), no sirven para clasificar
     {"website": "librosleidos.com.uy", "platform": "woocommerce", "base_url": "https://www.librosleidos.com.uy",
-     "condition": "Usado", "use_categories": False},
+     "default_condition": "Usado", "use_categories": False},
+    # Magento 2 (GraphQL)
+    {"website": "bookshop.com.uy", "platform": "magento", "base_url": "https://www.bookshop.com.uy"},
+    # Mosca vende también juguetes, papelería y tecnología: solo la categoría "Libros"
+    {"website": "mosca.com.uy", "platform": "magento", "base_url": "https://www.mosca.com.uy",
+     "category_uid": "Mzc0"},
+    # Fenicio
+    {"website": "grupolibros.com.uy", "platform": "fenicio", "base_url": "https://grupolibros.com.uy"},
+    # Catálogo propio (HTML)
+    {"website": "escaramuza.com.uy", "platform": "escaramuza", "base_url": "https://escaramuza.com.uy"},
+    {"website": "laskaramazov.com.uy", "platform": "virtuemart", "base_url": "https://laskaramazov.com.uy"},
+    # Shopify (páginas de colección HTML; products.json está bloqueado para bots)
+    {"website": "vanir.com.uy", "platform": "shopify", "base_url": "https://vanir.com.uy", "min_delay": 3},
+    {"website": "isadoralibros.com.uy", "platform": "shopify", "base_url": "https://isadoralibros.com.uy", "min_delay": 3},
+    {"website": "libreriamontevideo.com", "platform": "shopify", "base_url": "https://libreriamontevideo.com", "min_delay": 3},
+    {"website": "libreriapocho.com.uy", "platform": "shopify", "base_url": "https://www.libreriapocho.com.uy", "min_delay": 3},
 ]
 
-PLATFORMS = {"woocommerce": woocommerce.scrape}
+PLATFORMS = {
+    "woocommerce": woocommerce.scrape,
+    "magento": magento.scrape,
+    "fenicio": fenicio.scrape,
+    "escaramuza": escaramuza.scrape,
+    "virtuemart": virtuemart.scrape,
+    "shopify": shopify.scrape,
+}
+SOURCE_META_KEYS = {"website", "platform", "base_url", "min_delay"}
 
 
 def run_source(conn, source, max_pages, delay):
@@ -52,10 +79,8 @@ def run_source(conn, source, max_pages, delay):
     processed = 0
     try:
         processed, complete = PLATFORMS[source["platform"]](
-            source["base_url"], writer, delay=delay, max_pages=max_pages,
-            default_condition=source.get("condition", "Nuevo"),
-            default_genre=source.get("default_genre"),
-            use_categories=source.get("use_categories", True),
+            source["base_url"], writer, delay=max(delay, source.get("min_delay", 0)), max_pages=max_pages,
+            **{k: v for k, v in source.items() if k not in SOURCE_META_KEYS},
         )
         removed = writer.mark_unseen_out_of_stock() if complete else 0
         writer.log("success" if complete else "partial", processed)
