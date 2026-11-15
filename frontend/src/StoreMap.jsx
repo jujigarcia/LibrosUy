@@ -2,6 +2,7 @@ import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { MapPin, Tag } from 'lucide-react';
 
 // Fix Leaflet marker icon paths in Webpack/React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -10,6 +11,12 @@ L.Icon.Default.mergeOptions({
   iconUrl: require('leaflet/dist/images/marker-icon.png'),
   shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
 });
+
+// Uruguay's bounding box (with a small margin) — the map cannot be panned outside it
+const URUGUAY_BOUNDS = [
+  [-35.2, -58.6], // South-west (Colonia / Río de la Plata)
+  [-29.9, -52.9]  // North-east (Artigas / Rivera / Rocha)
+];
 
 function StoreMap({ stores = [], loading = false }) {
   const geolocatedStores = stores.filter(
@@ -29,22 +36,26 @@ function StoreMap({ stores = [], loading = false }) {
         <MapContainer
           center={[-34.65, -56.05]}
           zoom={8}
+          minZoom={7}
+          maxBounds={URUGUAY_BOUNDS}
+          maxBoundsViscosity={1.0}
           style={{ height: '100%', width: '100%' }}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            bounds={URUGUAY_BOUNDS}
           />
           {geolocatedStores.map((store) => (
             <Marker key={store.id} position={[store.latitude, store.longitude]}>
               <Popup>
                 <div style={{ padding: '4px', minWidth: '180px' }}>
                   <strong style={{ fontSize: '1rem', color: '#4c1d95' }}>{store.name}</strong>
-                  <p style={{ margin: '4px 0', fontSize: '0.82rem', color: '#374151' }}>
-                    📍 {store.address} ({store.department})
+                  <p style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0', fontSize: '0.82rem', color: '#374151' }}>
+                    <MapPin size={13} color="#c084fc" /> {store.address} ({store.department})
                   </p>
-                  <p style={{ margin: '4px 0', fontSize: '0.78rem', color: '#6b21a8' }}>
-                    🏷️ {store.specialty}
+                  <p style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0', fontSize: '0.78rem', color: '#6b21a8' }}>
+                    <Tag size={13} color="#c084fc" /> {store.specialty}
                   </p>
                   {store.website && (
                     <a

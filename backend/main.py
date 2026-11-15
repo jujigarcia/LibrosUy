@@ -163,7 +163,7 @@ def search_book(title: str):
 
         # 1. Check direct stock in SQL database
         cursor.execute("""
-            SELECT b.title, b.author, b.isbn, s.name, s.address, s.department, s.website,
+            SELECT TOP 60 b.title, b.author, b.isbn, s.name, s.address, s.department, s.website,
                    i.price_uyu, i.stock_quantity, i.condition, i.product_url,
                    s.bookstore_id, s.whatsapp
             FROM inventory_stock i

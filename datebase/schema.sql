@@ -28,12 +28,14 @@ CREATE TABLE bookstores (
 -- 2. BOOKS TABLE (Master catalog normalized by ISBN-13)
 CREATE TABLE books (
     book_id INT IDENTITY(1,1) PRIMARY KEY,
-    isbn VARCHAR(20) UNIQUE NOT NULL,
+    isbn VARCHAR(20) NULL, -- Opcional: varias tiendas no cargan ISBN (único cuando existe, ver índice abajo)
     title NVARCHAR(255) NOT NULL,
     author NVARCHAR(255) NULL,
     genre NVARCHAR(100) NULL,
     cover_url NVARCHAR(500) NULL
 );
+CREATE UNIQUE INDEX UX_books_isbn ON books(isbn) WHERE isbn IS NOT NULL;
+CREATE INDEX IX_books_title ON books(title);
 
 -- 3. INVENTORY_STOCK TABLE (Links books to stores with price & availability)
 CREATE TABLE inventory_stock (
@@ -44,10 +46,13 @@ CREATE TABLE inventory_stock (
     stock_quantity INT DEFAULT 1,
     condition NVARCHAR(50) DEFAULT 'Nuevo', -- 'Nuevo', 'Usado', 'Raro'
     product_url NVARCHAR(500) NULL,
+    external_id NVARCHAR(100) NULL, -- ID del producto en el sitio de la librería (scrapers)
     last_updated DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (bookstore_id) REFERENCES bookstores(bookstore_id) ON DELETE CASCADE,
     FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE
 );
+CREATE UNIQUE INDEX UX_inventory_store_external
+    ON inventory_stock(bookstore_id, external_id) WHERE external_id IS NOT NULL;
 
 -- 4. SYNC_LOGS TABLE (Audits daily sheet syncs & twice-weekly scraper runs)
 CREATE TABLE sync_logs (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Globe, BookOpen, Bookmark, Star, Trash2, Sparkles, RefreshCw, MessageCircle } from 'lucide-react';
+import { Search, MapPin, Globe, BookOpen, Bookmark, Star, Trash2, RefreshCw, MessageCircle } from 'lucide-react';
 import StoreMap from './StoreMap';
 
 // Fallback list of all 29 bookstores so the UI works even before the backend is started
@@ -448,7 +448,7 @@ export default function App() {
             <div>
               <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', border: '1px solid #e9d5ff', padding: '36px 28px', marginBottom: '28px' }}>
                 <h2 style={{ fontSize: '1.9rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 8px 0' }}>
-                  Buscador Inteligente de Libros y Géneros
+                  Búsqueda por Género
                 </h2>
                 <p style={{ color: '#6b7280', margin: '0 0 20px 0', fontSize: '0.98rem' }}>
                   Buscá por título, autor, ISBN o género. Consultamos el stock indexado de las librerías y clasificamos el libro con Google Books API.
@@ -517,7 +517,7 @@ export default function App() {
                   {/* 1. In-Stock Offers from SQL inventory_stock */}
                   <div style={{ marginBottom: '32px' }}>
                     <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#4c1d95', marginBottom: '12px' }}>
-                      📚 Copias en Stock Confirmado ({searchResult.in_stock_offers?.length || 0})
+                      Copias en Stock Confirmado ({searchResult.in_stock_offers?.length || 0})
                     </h3>
                     {searchResult.in_stock_offers && searchResult.in_stock_offers.length > 0 ? (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
@@ -541,8 +541,8 @@ export default function App() {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <div>
                                 <strong style={{ fontSize: '0.92rem', color: '#374151' }}>{offer.store_name}</strong>
-                                <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#6b7280' }}>
-                                  📍 {offer.address} ({offer.department})
+                                <p style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '2px 0 0 0', fontSize: '0.8rem', color: '#6b7280' }}>
+                                  <MapPin size={13} color="#c084fc" /> {offer.address} ({offer.department})
                                 </p>
                               </div>
                               {offer.product_url && (
@@ -576,7 +576,6 @@ export default function App() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
                       <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#4c1d95', margin: 0 }}>
-                        <Sparkles size={18} style={{ display: 'inline', marginRight: '6px' }} />
                         Librerías que podrían conseguirlo por encargo ({searchResult.recommended_stores?.length || 0})
                       </h3>
                       {(searchResult.matched_genres || []).map((g, i) => (
