@@ -35,14 +35,21 @@ def scrape(base_url: str, writer, *, delay: float = 1.0, max_pages: int | None =
     while True:
         resp = http.post("/graphql", json={"query": QUERY, "variables": variables})
         payload = resp.json()
+        data = (payload.get("data") or {}).get("products")
         if payload.get("errors"):
-            raise RuntimeError(f"GraphQL: {payload['errors'][0].get('message')}")
-        data = payload["data"]["products"]
+            # Magento returns partial data when a single product can't be resolved (e.g. a custom
+            # product type): keep the valid items and skip the broken ones (they come back as null)
+            if not data:
+                raise RuntimeError(f"GraphQL: {payload['errors'][0].get('message')}")
+            skipped = sum(1 for item in data.get("items") or [] if item is None)
+            progress(f"  página {variables['page']}: {skipped} producto(s) omitido(s) por error de la tienda")
         if total_pages is None:
             total_pages = data["page_info"]["total_pages"] or 1
             progress(f"  {data['total_count']} productos en {total_pages} páginas")
 
-        for item in data["items"]:
+        for item in data.get("items") or []:
+            if item is None:
+                continue
             price = item["price_range"]["minimum_price"]["final_price"]
             categories = [c["name"] for c in item.get("categories") or []] if use_categories else []
             url_key = item.get("url_key")

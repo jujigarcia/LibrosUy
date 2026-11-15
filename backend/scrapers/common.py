@@ -173,7 +173,8 @@ class StockWriter:
             "author": (author or "").strip()[:255] or None,
             "genre": genre or None,
             "cover_url": cover_url or None,
-            "price_uyu": price_uyu,
+            # Always float: a batch mixing int and float prices can't be sent as one array
+            "price_uyu": float(price_uyu) if price_uyu is not None else None,
             "stock_quantity": int(stock_quantity or 0),
             "condition": condition or "Nuevo",
             "product_url": product_url or None,

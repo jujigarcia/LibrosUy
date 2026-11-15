@@ -18,25 +18,29 @@ const URUGUAY_BOUNDS = [
   [-29.9, -52.9]  // North-east (Artigas / Rivera / Rocha)
 ];
 
-function StoreMap({ stores = [], loading = false }) {
+// compact: phone layout (shorter map, so the page can still be scrolled around it)
+function StoreMap({ stores = [], loading = false, compact = false }) {
   const geolocatedStores = stores.filter(
     (s) => s.latitude != null && s.longitude != null
   );
 
   return (
-    <div style={{ marginTop: '20px', marginBottom: '30px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <h3 style={{ margin: 0, color: '#1f2937' }}>Mapa Interactivo (Montevideo e Interior)</h3>
-        <span style={{ fontSize: '0.875rem', color: '#6b7280', fontWeight: 600 }}>
+    <div style={{ marginTop: compact ? '12px' : '20px', marginBottom: compact ? '20px' : '30px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '4px 12px', marginBottom: '10px' }}>
+        <h3 style={{ margin: 0, color: '#1f2937', fontSize: compact ? '1.05rem' : undefined }}>
+          {compact ? 'Mapa de librerías' : 'Mapa Interactivo (Montevideo e Interior)'}
+        </h3>
+        <span style={{ fontSize: compact ? '0.78rem' : '0.875rem', color: '#6b7280', fontWeight: 600 }}>
           {loading ? 'Cargando ubicaciones...' : `${geolocatedStores.length} librerías geolocalizadas en el mapa`}
         </span>
       </div>
 
-      <div style={{ height: '440px', width: '100%', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e9d5ff', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+      <div style={{ height: compact ? '320px' : '440px', width: '100%', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e9d5ff', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
         <MapContainer
           center={[-34.65, -56.05]}
-          zoom={8}
-          minZoom={7}
+          zoom={compact ? 6 : 8}
+          minZoom={compact ? 6 : 7}
+          scrollWheelZoom={false}
           maxBounds={URUGUAY_BOUNDS}
           maxBoundsViscosity={1.0}
           style={{ height: '100%', width: '100%' }}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Globe, BookOpen, Bookmark, Star, Trash2, RefreshCw, MessageCircle, AlertTriangle, FileSpreadsheet, Instagram, Info } from 'lucide-react';
+import { Search, MapPin, Globe, BookOpen, Bookmark, Star, Trash2, RefreshCw, MessageCircle, AlertTriangle, FileSpreadsheet, Instagram, Info, Home } from 'lucide-react';
 import StoreMap from './StoreMap';
 
 // Fallback list of all 29 bookstores so the UI works even before the backend is started
@@ -100,13 +100,35 @@ function StockNotice({ source, inSearch = false }) {
   );
 }
 
-function WhatsAppButton({ number, message }) {
+// Phones (portrait and small landscape): bottom tab bar, stacked layouts, bigger tap targets
+const MOBILE_QUERY = '(max-width: 767px)';
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches
+  );
+  useEffect(() => {
+    const media = window.matchMedia(MOBILE_QUERY);
+    const onChange = () => setIsMobile(media.matches);
+    onChange();
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
+  return isMobile;
+}
+
+// Same min/max column width everywhere; min(...) keeps a single column on narrow phones
+const CARD_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '20px' };
+
+function WhatsAppButton({ number, message, block = false }) {
   const link = buildWhatsAppLink(number, message);
   const baseStyle = {
-    display: 'inline-flex',
+    display: block ? 'flex' : 'inline-flex',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: '6px',
-    padding: '7px 14px',
+    padding: block ? '12px 14px' : '7px 14px',
+    minHeight: block ? '44px' : undefined,
     borderRadius: '8px',
     fontSize: '0.8rem',
     fontWeight: 700,
@@ -139,6 +161,7 @@ function WhatsAppButton({ number, message }) {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
+  const isMobile = useIsMobile();
   const [stores, setStores] = useState(FALLBACK_STORES);
   const [loadingStores, setLoadingStores] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -242,7 +265,7 @@ export default function App() {
           backgroundColor: '#ffffff',
           borderRadius: '14px',
           border: '1px solid #e9d5ff',
-          padding: '22px',
+          padding: isMobile ? '18px' : '22px',
           boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
           display: 'flex',
           flexDirection: 'column',
@@ -265,13 +288,14 @@ export default function App() {
                   border: '1px solid #e9d5ff',
                   backgroundColor: isSaved ? '#fef08a' : '#faf5ff',
                   borderRadius: '8px',
-                  padding: '6px',
+                  padding: isMobile ? '10px' : '6px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center'
                 }}
+                aria-label={isSaved ? "Quitar de Mi Lista" : "Guardar en Mi Lista"}
               >
-                <Bookmark size={15} color="#6b21a8" fill={isSaved ? "#6b21a8" : "none"} />
+                <Bookmark size={isMobile ? 18 : 15} color="#6b21a8" fill={isSaved ? "#6b21a8" : "none"} />
               </button>
             </div>
           </div>
@@ -310,15 +334,14 @@ export default function App() {
         <StockNotice source={store.stock_source} inSearch={Boolean(bookQuery)} />
 
         <div style={{ marginTop: '14px' }}>
-          <WhatsAppButton number={store.whatsapp} message={whatsappMessage} />
+          <WhatsAppButton number={store.whatsapp} message={whatsappMessage} block={isMobile} />
         </div>
       </div>
     );
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
+    <div className="screen-min-height" style={{
       fontFamily: 'system-ui, -apple-system, sans-serif',
       position: 'relative',
       background: activeTab === 'home'
@@ -335,17 +358,19 @@ export default function App() {
         left: 0,
         right: 0,
         zIndex: 1000,
-        padding: '30px 4%'
+        padding: isMobile ? 'calc(14px + env(safe-area-inset-top)) 16px 14px' : '30px 4%'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div
             onClick={() => setActiveTab('home')}
             style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
           >
-            <BookOpen style={{ color: '#374151' }} size={28} strokeWidth={1} />
-            <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#374151' }}>LibrosUy</span>
+            <BookOpen style={{ color: '#374151' }} size={isMobile ? 24 : 28} strokeWidth={1} />
+            <span style={{ fontSize: isMobile ? '1.2rem' : '1.4rem', fontWeight: 800, color: '#374151' }}>LibrosUy</span>
           </div>
 
+          {/* Desktop: top navigation. Phones use the bottom tab bar below */}
+          {!isMobile && (
           <nav style={{ display: 'flex', gap: '32px' }}>
             <button
               onClick={() => setActiveTab('explore')}
@@ -390,32 +415,34 @@ export default function App() {
               Mi Lista ({savedStoreIds.length})
             </button>
           </nav>
+          )}
         </div>
       </header>
 
       {/* TAB 0: HOME (Minimalist Landing Page) */}
       {activeTab === 'home' && (
-        <main style={{
-          minHeight: '100vh',
+        <main className="screen-min-height" style={{
           display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 8%',
-          position: 'relative'
+          justifyContent: isMobile ? 'center' : 'space-between',
+          padding: isMobile ? '88px 20px calc(110px + env(safe-area-inset-bottom))' : '0 8%',
+          position: 'relative',
+          overflow: 'hidden'
         }}>
           {/* Left Column: Stylized Logo & Hook */}
-          <div style={{ flex: '1 1 50%', display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '40px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px', color: '#374151' }}>
-              <span style={{ fontSize: '5.5rem', fontWeight: 800, transform: 'rotate(-8deg)', letterSpacing: '-0.03em' }}>
+          <div style={{ flex: isMobile ? '0 0 auto' : '1 1 50%', display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: isMobile ? 0 : '40px', position: 'relative', zIndex: 2 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: isMobile ? '24px' : '40px', color: '#374151' }}>
+              <span style={{ fontSize: isMobile ? '3.4rem' : '5.5rem', fontWeight: 800, transform: 'rotate(-8deg)', letterSpacing: '-0.03em' }}>
                 Libros
               </span>
-              <span style={{ fontSize: '5.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', marginTop: '-30px', marginLeft: '60px', letterSpacing: '-0.03em' }}>
-                <span style={{ fontSize: '4.5rem', marginRight: '8px', transform: 'translateY(5px)' }}>✳</span>Uy
+              <span style={{ fontSize: isMobile ? '3.4rem' : '5.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', marginTop: isMobile ? '-16px' : '-30px', marginLeft: isMobile ? '36px' : '60px', letterSpacing: '-0.03em' }}>
+                <span style={{ fontSize: isMobile ? '2.8rem' : '4.5rem', marginRight: '8px', transform: 'translateY(5px)' }}>✳</span>Uy
               </span>
             </div>
 
             <h1 style={{
-              fontSize: '4.2rem',
+              fontSize: isMobile ? '2.1rem' : '4.2rem',
               fontWeight: 300,
               color: '#374151',
               lineHeight: '1.05',
@@ -425,11 +452,31 @@ export default function App() {
             }}>
               La mejor forma de encontrar<br />tu libro
             </h1>
+
+            {/* Phones: direct entry points (desktop uses the top navigation) */}
+            {isMobile && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', maxWidth: '320px', marginTop: '28px' }}>
+                <button
+                  onClick={() => setActiveTab('genres')}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', minHeight: '50px', backgroundColor: '#7e22ce', color: '#ffffff', border: 'none', borderRadius: '14px', fontSize: '1rem', fontWeight: 700 }}
+                >
+                  <Search size={18} /> Buscar un libro
+                </button>
+                <button
+                  onClick={() => setActiveTab('explore')}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', minHeight: '50px', backgroundColor: 'rgba(255,255,255,0.75)', color: '#4c1d95', border: '1px solid #e9d5ff', borderRadius: '14px', fontSize: '1rem', fontWeight: 700 }}
+                >
+                  <MapPin size={18} /> Ver librerías en el mapa
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Right Column: Abstract Line Art + Open Book */}
-          <div style={{ flex: '1 1 50%', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
-            <svg viewBox="0 0 200 200" style={{ position: 'absolute', width: '650px', height: '650px', zIndex: 0, opacity: 0.7 }}>
+          <div style={isMobile
+            ? { position: 'absolute', right: '-70px', bottom: '70px', opacity: 0.18, pointerEvents: 'none', zIndex: 0 }
+            : { flex: '1 1 50%', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+            <svg viewBox="0 0 200 200" style={{ position: 'absolute', width: isMobile ? '320px' : '650px', height: isMobile ? '320px' : '650px', zIndex: 0, opacity: 0.7 }}>
               <path d="M 0 80 Q 50 20 100 80 T 200 80" stroke="#ffffff" strokeWidth="1.5" fill="none" />
               <path d="M 0 100 Q 50 40 100 100 T 200 100" stroke="#ffffff" strokeWidth="1.5" fill="none" />
               <path d="M 0 120 Q 50 60 100 120 T 200 120" stroke="#ffffff" strokeWidth="1.5" fill="none" />
@@ -440,15 +487,17 @@ export default function App() {
               <path d="M 120 0 Q 60 50 120 100 T 120 200" stroke="#ffffff" strokeWidth="1.5" fill="none" />
               <path d="M 140 0 Q 80 50 140 100 T 140 200" stroke="#ffffff" strokeWidth="1.5" fill="none" />
             </svg>
-            <BookOpen size={500} strokeWidth={1} color="#1f2937" style={{ zIndex: 1, position: 'relative', transform: 'rotate(8deg)' }} />
+            <BookOpen size={isMobile ? 260 : 500} strokeWidth={1} color="#1f2937" style={{ zIndex: 1, position: 'relative', transform: 'rotate(8deg)' }} />
           </div>
 
           {/* Bottom-left Disclaimer */}
           <p style={{
             position: 'absolute',
-            bottom: '40px',
-            left: '4%',
-            fontSize: '0.75rem',
+            bottom: isMobile ? 'calc(84px + env(safe-area-inset-bottom))' : '40px',
+            left: isMobile ? '16px' : '4%',
+            right: isMobile ? '16px' : undefined,
+            textAlign: isMobile ? 'center' : undefined,
+            fontSize: isMobile ? '0.65rem' : '0.75rem',
             fontWeight: 800,
             color: '#374151',
             textTransform: 'uppercase',
@@ -462,12 +511,12 @@ export default function App() {
 
       {/* INNER TABS */}
       {activeTab !== 'home' && (
-        <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
+        <main style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '20px 16px calc(96px + env(safe-area-inset-bottom))' : '32px 20px' }}>
 
           {/* TAB 1: EXPLORAR LIBRERÍAS (Map + 29-Store Directory) */}
           {activeTab === 'explore' && (
             <div>
-              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 20px 0' }}>
+              <h2 style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 16px 0' }}>
                 Explorar Librerías en Uruguay
               </h2>
 
@@ -477,20 +526,20 @@ export default function App() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Filtrar por nombre, departamento (ej. Canelones, Maldonado) o especialidad..."
+                  placeholder={isMobile ? 'Nombre, departamento o especialidad' : 'Filtrar por nombre, departamento (ej. Canelones, Maldonado) o especialidad...'}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ flex: 1, border: 'none', outline: 'none', padding: '10px 8px', fontSize: '0.98rem' }}
+                  style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', padding: '10px 8px', fontSize: '16px' }}
                 />
               </div>
 
-              <StoreMap stores={filteredStores} loading={loadingStores} />
+              <StoreMap stores={filteredStores} loading={loadingStores} compact={isMobile} />
 
               <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#6b21a8', marginBottom: '16px', marginTop: '36px' }}>
                 Directorio de Librerías ({filteredStores.length})
               </h3>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+              <div style={CARD_GRID}>
                 {filteredStores.map((store) => renderStoreCard(store))}
               </div>
             </div>
@@ -499,8 +548,8 @@ export default function App() {
           {/* TAB 2: BUSCAR POR GÉNERO / LIBRO (Local Stock + Google Books API) */}
           {activeTab === 'genres' && (
             <div>
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', border: '1px solid #e9d5ff', padding: '36px 28px', marginBottom: '28px' }}>
-                <h2 style={{ fontSize: '1.9rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 8px 0' }}>
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', border: '1px solid #e9d5ff', padding: isMobile ? '22px 16px' : '36px 28px', marginBottom: '28px' }}>
+                <h2 style={{ fontSize: isMobile ? '1.5rem' : '1.9rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 8px 0' }}>
                   Búsqueda por Género
                 </h2>
                 <p style={{ color: '#6b7280', margin: '0 0 20px 0', fontSize: '0.98rem' }}>
@@ -511,14 +560,15 @@ export default function App() {
                   onSubmit={(e) => { e.preventDefault(); handleBookSearch(); }}
                   style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}
                 >
-                  <div style={{ flex: '1 1 320px', display: 'flex', alignItems: 'center', backgroundColor: '#f9fafb', border: '2px solid #c084fc', borderRadius: '12px', padding: '4px 14px' }}>
+                  <div style={{ flex: '1 1 260px', minWidth: 0, display: 'flex', alignItems: 'center', backgroundColor: '#f9fafb', border: '2px solid #c084fc', borderRadius: '12px', padding: '4px 14px' }}>
                     <Search size={18} color="#7e22ce" />
                     <input
                       type="text"
                       value={bookQuery}
                       onChange={(e) => setBookQuery(e.target.value)}
-                      placeholder="Ej: La tregua, Alas de sangre, Chainsaw Man, Galeano..."
-                      style={{ flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent', padding: '10px', fontSize: '1rem' }}
+                      placeholder={isMobile ? 'Título, autor o ISBN' : 'Ej: La tregua, Alas de sangre, Chainsaw Man, Galeano...'}
+                      enterKeyHint="search"
+                      style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', backgroundColor: 'transparent', padding: '10px', fontSize: '16px' }}
                     />
                   </div>
                   <button
@@ -529,8 +579,10 @@ export default function App() {
                       border: 'none',
                       borderRadius: '12px',
                       padding: '0 26px',
+                      minHeight: '48px',
+                      flex: isMobile ? '1 1 100%' : '0 0 auto',
                       fontWeight: 700,
-                      fontSize: '0.98rem',
+                      fontSize: '1rem',
                       cursor: 'pointer'
                     }}
                   >
@@ -539,8 +591,8 @@ export default function App() {
                 </form>
 
                 {/* Quick Genre Filter Pills */}
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                  <span style={{ fontSize: '0.82rem', color: '#6b7280', fontWeight: 600, marginRight: '4px' }}>
+                <div className={isMobile ? 'scroll-row' : undefined} style={{ display: 'flex', alignItems: 'center', flexWrap: isMobile ? 'nowrap' : 'wrap', gap: '8px', margin: isMobile ? '0 -16px' : 0, padding: isMobile ? '2px 16px' : 0 }}>
+                  <span style={{ fontSize: '0.82rem', color: '#6b7280', fontWeight: 600, marginRight: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}>
                     Explorar género rápido:
                   </span>
                   {QUICK_GENRES.map((genre) => (
@@ -552,8 +604,10 @@ export default function App() {
                         color: '#6b21a8',
                         border: '1px solid #e9d5ff',
                         borderRadius: '9999px',
-                        padding: '5px 14px',
-                        fontSize: '0.8rem',
+                        padding: isMobile ? '9px 16px' : '5px 14px',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        fontSize: isMobile ? '0.88rem' : '0.8rem',
                         fontWeight: 700,
                         cursor: 'pointer'
                       }}
@@ -569,15 +623,15 @@ export default function App() {
                 <div>
                   {/* 1. In-Stock Offers from SQL inventory_stock */}
                   <div style={{ marginBottom: '32px' }}>
-                    <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#4c1d95', marginBottom: '12px' }}>
+                    <h3 style={{ fontSize: isMobile ? '1.15rem' : '1.3rem', fontWeight: 800, color: '#4c1d95', marginBottom: '12px' }}>
                       Copias en Stock Confirmado ({searchResult.in_stock_offers?.length || 0})
                     </h3>
                     {searchResult.in_stock_offers && searchResult.in_stock_offers.length > 0 ? (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                      <div style={{ ...CARD_GRID, gap: '16px' }}>
                         {searchResult.in_stock_offers.map((offer, idx) => (
                           <div key={idx} style={{ backgroundColor: '#ffffff', borderRadius: '14px', border: '2px solid #c084fc', padding: '20px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                              <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                              <div style={{ minWidth: 0 }}>
                                 <span style={{ fontSize: '0.72rem', backgroundColor: '#fef08a', color: '#854d0e', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
                                   {offer.condition} · Stock: {offer.stock_quantity}
                                 </span>
@@ -585,14 +639,14 @@ export default function App() {
                                 <p style={{ margin: 0, fontSize: '0.85rem', color: '#6b7280' }}>{offer.author}</p>
                               </div>
                               {offer.price_uyu && (
-                                <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#4c1d95' }}>
+                                <span style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 800, color: '#4c1d95', whiteSpace: 'nowrap' }}>
                                   ${offer.price_uyu} UYU
                                 </span>
                               )}
                             </div>
                             <hr style={{ border: 'none', borderTop: '1px solid #f3e8ff', margin: '12px 0' }} />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                              <div style={{ minWidth: 0 }}>
                                 <strong style={{ fontSize: '0.92rem', color: '#374151' }}>{offer.store_name}</strong>
                                 <p style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '2px 0 0 0', fontSize: '0.8rem', color: '#6b7280' }}>
                                   <MapPin size={13} color="#c084fc" /> {offer.address} ({offer.department})
@@ -603,7 +657,7 @@ export default function App() {
                                   href={offer.product_url}
                                   target="_blank"
                                   rel="noreferrer"
-                                  style={{ backgroundColor: '#7e22ce', color: '#ffffff', textDecoration: 'none', padding: '7px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}
+                                  style={{ backgroundColor: '#7e22ce', color: '#ffffff', textDecoration: 'none', padding: isMobile ? '10px 16px' : '7px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}
                                 >
                                   Ver en Tienda
                                 </a>
@@ -611,6 +665,7 @@ export default function App() {
                             </div>
                             <div style={{ marginTop: '12px' }}>
                               <WhatsAppButton
+                                block={isMobile}
                                 number={offer.whatsapp}
                                 message={`¡Hola ${offer.store_name}! Vi en LibrosUy que tienen "${offer.book_title}"${offer.author ? ` de ${offer.author}` : ''}${offer.price_uyu ? ` a $${offer.price_uyu} UYU` : ''} (${offer.condition}). ¿Sigue disponible?`}
                               />
@@ -628,7 +683,7 @@ export default function App() {
                   {/* 2. Recommended Bookstores by Genre */}
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
-                      <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#4c1d95', margin: 0 }}>
+                      <h3 style={{ fontSize: isMobile ? '1.15rem' : '1.3rem', fontWeight: 800, color: '#4c1d95', margin: 0 }}>
                         Librerías que podrían conseguirlo por encargo ({searchResult.recommended_stores?.length || 0})
                       </h3>
                       {(searchResult.matched_genres || []).map((g, i) => (
@@ -659,7 +714,7 @@ export default function App() {
                       );
                     })()}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                    <div style={CARD_GRID}>
                       {(searchResult.recommended_stores || []).map((store) => renderStoreCard(store, searchResult.query))}
                     </div>
                   </div>
@@ -671,18 +726,18 @@ export default function App() {
           {/* TAB 3: MI LISTA (Saved Bookstores) */}
           {activeTab === 'saved' && (
             <div>
-              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 20px 0' }}>
+              <h2 style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 20px 0' }}>
                 Mi Lista de Librerías Guardadas ({savedStoresList.length})
               </h2>
 
               {savedStoresList.length === 0 ? (
-                <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e9d5ff', padding: '60px 20px', textAlign: 'center' }}>
+                <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e9d5ff', padding: isMobile ? '40px 20px' : '60px 20px', textAlign: 'center' }}>
                   <Bookmark size={40} color="#854d0e" style={{ margin: '0 auto 20px auto', fill: '#fef08a' }} />
                   <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#4c1d95', marginBottom: '10px' }}>
                     Tu lista está vacía
                   </h3>
                   <p style={{ color: '#6b7280', maxWidth: '460px', margin: '0 auto 20px auto' }}>
-                    Hacé clic en el ícono de marcador en cualquier librería de "Explorar Librerías" o "Buscar por Género" para guardarla acá.
+                    {isMobile ? 'Tocá' : 'Hacé clic en'} el ícono de marcador en cualquier librería de "Explorar Librerías" o "Buscar por Género" para guardarla acá.
                   </p>
                   <button
                     onClick={() => setActiveTab('explore')}
@@ -704,7 +759,7 @@ export default function App() {
                       <Trash2 size={14} /> Vaciar Mi Lista
                     </button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                  <div style={CARD_GRID}>
                     {savedStoresList.map((store) => renderStoreCard(store))}
                   </div>
                 </div>
@@ -712,6 +767,65 @@ export default function App() {
             </div>
           )}
         </main>
+      )}
+
+      {/* Phones: bottom tab bar (Android/iOS pattern), above the home indicator */}
+      {isMobile && (
+        <nav
+          aria-label="Navegación principal"
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 1100,
+            display: 'flex',
+            backgroundColor: 'rgba(255,255,255,0.96)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            borderTop: '1px solid #e9d5ff',
+            paddingBottom: 'env(safe-area-inset-bottom)'
+          }}
+        >
+          {[
+            { id: 'home', label: 'Inicio', Icon: Home },
+            { id: 'explore', label: 'Librerías', Icon: MapPin },
+            { id: 'genres', label: 'Buscar', Icon: Search },
+            { id: 'saved', label: 'Mi Lista', Icon: Bookmark, badge: savedStoreIds.length }
+          ].map(({ id, label, Icon, badge }) => {
+            const active = activeTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => { setActiveTab(id); window.scrollTo(0, 0); }}
+                aria-current={active ? 'page' : undefined}
+                style={{
+                  flex: 1,
+                  minHeight: '58px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '3px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: active ? '#7e22ce' : '#6b7280',
+                  fontSize: '0.7rem',
+                  fontWeight: active ? 800 : 600,
+                  position: 'relative'
+                }}
+              >
+                <Icon size={22} strokeWidth={active ? 2.4 : 1.8} />
+                {label}
+                {badge > 0 && (
+                  <span style={{ position: 'absolute', top: '6px', left: '50%', marginLeft: '8px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9999px', backgroundColor: '#7e22ce', color: '#ffffff', fontSize: '0.62rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
       )}
     </div>
   );
