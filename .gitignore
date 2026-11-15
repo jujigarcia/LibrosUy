@@ -4,3 +4,6 @@ __pycache__/
 node_modules/
 backend/logs/
 .env.backup
+.env.local
+.env.*.local
+frontend/build/

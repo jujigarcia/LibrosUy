@@ -17,6 +17,11 @@ GOOGLE_BOOKS_API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY")
 
 GENERAL_TAG = "Catálogo General"
 
+# Genre detection from our own catalog: keep at most this many genres, each covering at
+# least this share of the matching books
+MAX_CATALOG_GENRES = 2
+MIN_GENRE_SHARE = 0.2
+
 # Maps Google Books English categories to Uruguayan store specialties
 CATEGORY_MAP = {
     "Fiction": "Ficción",
@@ -224,15 +229,25 @@ def search_book(title: str):
         matched_tags = set()
 
         # 2a. Genre of matching books in our own catalog (works even if Google is down)
+        # Only the dominant genres count: a common word in titles ("fantasía", "historia")
+        # matches books of every genre, which would recommend almost every store.
         cursor.execute("""
-            SELECT DISTINCT genre FROM books
+            SELECT genre, count(*) FROM books
             WHERE genre IS NOT NULL
               AND (unaccent(title) ILIKE unaccent(%(q)s) OR unaccent(author) ILIKE unaccent(%(q)s)
                    OR isbn ILIKE %(q)s)
-            LIMIT 50
+            GROUP BY genre
+            ORDER BY count(*) DESC
+            LIMIT 30
         """, {"q": like_pattern})
-        for (genre,) in cursor.fetchall():
-            matched_tags.update(split_tags(genre))
+        tag_counts = {}
+        for genre, count in cursor.fetchall():
+            for tag in split_tags(genre):
+                tag_counts[tag] = tag_counts.get(tag, 0) + count
+        total = sum(tag_counts.values())
+        for tag, count in sorted(tag_counts.items(), key=lambda kv: kv[1], reverse=True)[:MAX_CATALOG_GENRES]:
+            if count >= total * MIN_GENRE_SHARE:
+                matched_tags.add(tag)
 
         # 2b. Google Books categories
         book_meta, google_cats = get_google_book_info(query)

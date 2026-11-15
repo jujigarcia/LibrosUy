@@ -35,6 +35,10 @@ const FALLBACK_STORES = [
   { id: 29, name: "Librería Montevideo", website: "libreriamontevideo.com", specialty: "Catálogo General, Historia", tags: ["Catálogo General", "Historia"], address: "Montevideo", department: "Montevideo", latitude: -34.9055, longitude: -56.1915, ingestion_method: "web_scraper", featured: false }
 ];
 
+// Backend base URL: set REACT_APP_API_URL in Vercel (e.g. https://librosuy.onrender.com);
+// defaults to the local FastAPI server for development.
+const API_URL = (process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+
 const QUICK_GENRES = ["Ficción", "Fantasía", "Manga", "Cómics", "Juvenil", "Historia", "Usados", "Poesía"];
 
 // Normalizes a Uruguayan phone number to the international format wa.me expects (e.g. 59899123456)
@@ -155,7 +159,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/api/stores')
+    fetch(`${API_URL}/api/stores`)
       .then((res) => {
         if (!res.ok) throw new Error('API offline');
         return res.json();
@@ -189,7 +193,7 @@ export default function App() {
     setBookSearchLoading(true);
 
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/search?title=${encodeURIComponent(q)}`);
+      const res = await fetch(`${API_URL}/api/search?title=${encodeURIComponent(q)}`);
       if (!res.ok) throw new Error('Error en servidor');
       const data = await res.json();
       setSearchResult(data);
