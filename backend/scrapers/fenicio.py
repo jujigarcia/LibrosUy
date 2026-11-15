@@ -58,7 +58,7 @@ def scrape(base_url: str, writer, *, delay: float = 1.0, max_pages: int | None =
                 product_url=variant.get("url"),
             )
             processed += 1
-        writer.conn.commit()
+        writer.commit()
 
         if new_on_page == 0:  # The site repeats the last page instead of returning empty
             return processed, True

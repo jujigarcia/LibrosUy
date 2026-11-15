@@ -63,12 +63,14 @@ SOURCE_META_KEYS = {"website", "platform", "base_url", "min_delay"}
 
 
 def run_source(conn, source, max_pages, delay):
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT TOP 1 bookstore_id, name FROM bookstores WHERE website = ? AND is_active = 1 ORDER BY bookstore_id",
-        (source["website"],),
-    )
-    row = cursor.fetchone()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT bookstore_id, name FROM bookstores WHERE website = %s AND is_active "
+            "ORDER BY bookstore_id LIMIT 1",
+            (source["website"],),
+        )
+        row = cursor.fetchone()
+    conn.commit()
     if not row:
         print(f"[{source['website']}] No hay librería activa con ese sitio en la base; se omite.")
         return False
@@ -116,7 +118,7 @@ def main():
         print(f"No hay una fuente configurada para {args.store!r}. Usá --list.")
         return 1
 
-    conn = get_db_connection()
+    conn = get_db_connection(direct=True)
     try:
         results = [run_source(conn, s, args.max_pages, args.delay) for s in sources]
     finally:

@@ -81,7 +81,7 @@ def scrape(base_url: str, writer, *, delay: float = 1.0, max_pages: int | None =
             if item:
                 writer.upsert_offer(**item)
                 processed += 1
-        writer.conn.commit()
+        writer.commit()
 
         if page % 10 == 0:
             progress(f"  página {page}/{total_pages} · {processed} productos")

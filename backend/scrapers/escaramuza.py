@@ -59,7 +59,7 @@ def scrape(base_url: str, writer, *, delay: float = 1.0, max_pages: int | None =
                 product_url=f"{base}{href}" if href.startswith("/") else href,
             )
             processed += 1
-        writer.conn.commit()
+        writer.commit()
 
         if page % 25 == 0:
             progress(f"  página {page}/{total_pages} · {processed} productos")

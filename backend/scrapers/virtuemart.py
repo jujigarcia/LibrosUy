@@ -64,7 +64,7 @@ def scrape(base_url: str, writer, *, delay: float = 1.0, max_pages: int | None =
                     product_url=f"{base}{link['href']}",
                 )
                 processed += 1
-            writer.conn.commit()
+            writer.commit()
             if len(cards) < PER_PAGE:
                 break
             start += PER_PAGE

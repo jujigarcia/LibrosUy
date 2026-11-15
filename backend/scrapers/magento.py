@@ -59,7 +59,7 @@ def scrape(base_url: str, writer, *, delay: float = 1.0, max_pages: int | None =
                 product_url=f"{base}/{url_key}{item.get('url_suffix') or '.html'}" if url_key else None,
             )
             processed += 1
-        writer.conn.commit()
+        writer.commit()
 
         page = variables["page"]
         if page % 10 == 0:

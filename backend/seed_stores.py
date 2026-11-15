@@ -2,9 +2,9 @@
 Descubre librerías de Uruguay en OpenStreetMap y agrega a la tabla `bookstores`
 las que todavía no están cargadas.
 
-Las librerías nuevas se insertan con is_active = 0 (pendientes de revisión) para
+Las librerías nuevas se insertan con is_active = false (pendientes de revisión) para
 que no aparezcan en el mapa hasta que alguien confirme sus datos y especialidad.
-Para publicarlas: UPDATE bookstores SET is_active = 1, specialty = N'...' WHERE bookstore_id = ...
+Para publicarlas: UPDATE bookstores SET is_active = true, specialty = N'...' WHERE bookstore_id = ...
 
 Uso:
     python seed_stores.py            # inserta las librerías nuevas
@@ -66,9 +66,9 @@ def main(dry_run: bool):
     osm_stores = fetch_osm_bookstores()
     print(f"OpenStreetMap devolvió {len(osm_stores)} librerías con nombre y ubicación.")
 
-    conn = get_db_connection()
+    conn = get_db_connection(direct=True)
     cursor = conn.cursor()
-    cursor.execute("SELECT LOWER(name) FROM bookstores")
+    cursor.execute("SELECT lower(name) FROM bookstores")
     existing = {row[0] for row in cursor.fetchall()}
 
     inserted, skipped, failed = 0, 0, 0
@@ -85,13 +85,15 @@ def main(dry_run: bool):
                 continue
 
             try:
-                cursor.execute("""
-                    INSERT INTO bookstores (name, website, specialty, address, department,
-                                            latitude, longitude, ingestion_method, sync_frequency,
-                                            featured, is_active)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'google_sheets', 'daily', 0, 0)
-                """, (store["name"], store["website"], DEFAULT_SPECIALTY, store["address"],
-                      store["department"], store["latitude"], store["longitude"]))
+                # Savepoint per row: in PostgreSQL one failed INSERT would abort the whole transaction
+                with conn.transaction():
+                    cursor.execute("""
+                        INSERT INTO bookstores (name, website, specialty, address, department,
+                                                latitude, longitude, ingestion_method, sync_frequency,
+                                                featured, is_active)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, 'google_sheets', 'daily', false, false)
+                    """, (store["name"], store["website"], DEFAULT_SPECIALTY, store["address"],
+                          store["department"], store["latitude"], store["longitude"]))
                 inserted += 1
             except Exception as e:
                 failed += 1
@@ -106,7 +108,7 @@ def main(dry_run: bool):
     action = "Se insertarían" if dry_run else "Insertadas"
     print(f"{action}: {inserted} · Ya existentes: {skipped} · Con error: {failed}")
     if inserted and not dry_run:
-        print("Las nuevas quedaron con is_active = 0: revisalas antes de publicarlas.")
+        print("Las nuevas quedaron con is_active = false: revisalas antes de publicarlas.")
     return 1 if failed else 0
 
 

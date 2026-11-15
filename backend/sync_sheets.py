@@ -1,98 +1,107 @@
+"""
+Sincroniza el stock de las librerías sin tienda online desde su planilla de Google Sheets.
+
+Cada librería comparte una planilla (Archivo > Compartir > Publicar en la Web > CSV) con columnas:
+    isbn, title, author, genre, price_uyu, stock_quantity, condition, product_url
+(solo `title` es obligatoria). El enlace CSV se guarda en bookstores.sheet_url:
+
+    UPDATE bookstores SET sheet_url = 'https://docs.google.com/spreadsheets/d/<ID>/export?format=csv'
+    WHERE name = 'Librería Ofipando';
+
+Uso:
+    python sync_sheets.py                 # todas las librerías con sheet_url
+    python sync_sheets.py --store-id 13   # una sola
+"""
+import argparse
 import csv
-import requests
-import pyodbc
+import sys
 from io import StringIO
 
-DB_CONN_STR = (
-    "Driver={SQL Server};"
-    "Server=localhost\\SQLEXPRESS;"
-    "Database=LibrosUyDB;"
-    "Trusted_Connection=yes;"
-)
+import requests
 
-# Example Google Sheet CSV export link:
-# https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/export?format=csv
-SHEET_CSV_URL = "TU_LINK_CSV_DE_GOOGLE_SHEETS_AQUI"
+from db import get_db_connection
+from scrapers.common import USER_AGENT, StockWriter, clean_isbn, parse_uy_price
 
-def sync_stock_from_sheet(bookstore_id: int, csv_url: str):
-    """
-    Reads a bookstore's Google Sheet CSV with columns:
-    isbn, title, author, genre, price_uyu, stock_quantity, condition, product_url
-    and upserts books + inventory_stock into SQL Server.
-    """
-    conn = pyodbc.connect(DB_CONN_STR)
-    cursor = conn.cursor()
-    processed = 0
 
+def _int(value, default=1):
     try:
-        response = requests.get(csv_url, timeout=15)
-        response.raise_for_status()
-        response.encoding = "utf-8"
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return default
 
-        reader = csv.DictReader(StringIO(response.text))
-        for row in reader:
-            isbn = (row.get("isbn") or "").strip()
-            title = (row.get("title") or "").strip()
-            if not isbn or not title:
+
+def sync_store(conn, bookstore_id: int, name: str, csv_url: str) -> bool:
+    writer = StockWriter(conn, bookstore_id, channel="google_sheets")
+    processed, skipped = 0, 0
+    try:
+        resp = requests.get(csv_url, headers={"User-Agent": USER_AGENT}, timeout=30)
+        resp.raise_for_status()
+        resp.encoding = "utf-8"
+
+        for row in csv.DictReader(StringIO(resp.text)):
+            row = {(k or "").strip().lower(): (v or "").strip() for k, v in row.items()}
+            title = row.get("title") or row.get("titulo") or row.get("título")
+            if not title:
+                skipped += 1
                 continue
-
-            author = (row.get("author") or "").strip()
-            genre = (row.get("genre") or "General").strip()
-            price = float(row.get("price_uyu") or 0)
-            qty = int(row.get("stock_quantity") or 1)
-            condition = (row.get("condition") or "Nuevo").strip()
-            url = (row.get("product_url") or "").strip() or None
-
-            # 1. Upsert Book by ISBN
-            cursor.execute("SELECT book_id FROM books WHERE isbn = ?", (isbn,))
-            book_row = cursor.fetchone()
-            if book_row:
-                book_id = book_row[0]
-            else:
-                cursor.execute(
-                    "INSERT INTO books (isbn, title, author, genre) OUTPUT INSERTED.book_id VALUES (?, ?, ?, ?)",
-                    (isbn, title, author, genre)
-                )
-                book_id = cursor.fetchone()[0]
-
-            # 2. Upsert Inventory Stock for this store
-            cursor.execute(
-                "SELECT stock_id FROM inventory_stock WHERE bookstore_id = ? AND book_id = ? AND condition = ?",
-                (bookstore_id, book_id, condition)
+            isbn = clean_isbn(row.get("isbn"))
+            condition = row.get("condition") or row.get("estado") or "Nuevo"
+            writer.upsert_offer(
+                # Stable key per sheet row: ISBN (or title) + condition
+                external_id=f"sheet:{isbn or title.lower()}:{condition.lower()}",
+                isbn=isbn,
+                title=title,
+                author=row.get("author") or row.get("autor"),
+                genre=row.get("genre") or row.get("genero") or row.get("género"),
+                cover_url=None,
+                price_uyu=parse_uy_price(row.get("price_uyu") or row.get("precio")),
+                stock_quantity=_int(row.get("stock_quantity") or row.get("stock"), 1),
+                condition=condition,
+                product_url=row.get("product_url") or None,
             )
-            stock_row = cursor.fetchone()
-            if stock_row:
-                cursor.execute("""
-                    UPDATE inventory_stock
-                    SET price_uyu = ?, stock_quantity = ?, product_url = ?, last_updated = GETDATE()
-                    WHERE stock_id = ?
-                """, (price, qty, url, stock_row[0]))
-            else:
-                cursor.execute("""
-                    INSERT INTO inventory_stock (bookstore_id, book_id, price_uyu, stock_quantity, condition, product_url)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (bookstore_id, book_id, price, qty, condition, url))
-
             processed += 1
+            if processed % 200 == 0:
+                writer.commit()
 
-        # 3. Record audit log
-        cursor.execute("""
-            INSERT INTO sync_logs (bookstore_id, sync_channel, status, records_processed)
-            VALUES (?, 'google_sheets', 'success', ?)
-        """, (bookstore_id, processed))
+        writer.commit()
+        removed = writer.mark_unseen_out_of_stock()  # Rows deleted from the sheet -> no stock
+        writer.log("success", processed)
         conn.commit()
-        print(f"¡Sincronización exitosa! {processed} libros actualizados para bookstore_id={bookstore_id}.")
-
+        print(f"[{name}] OK: {processed} libros"
+              f"{f', {skipped} filas sin título omitidas' if skipped else ''}"
+              f"{f', {removed} marcados sin stock' if removed else ''}")
+        return True
     except Exception as e:
-        cursor.execute("""
-            INSERT INTO sync_logs (bookstore_id, sync_channel, status, records_processed)
-            VALUES (?, 'google_sheets', 'failed', ?)
-        """, (bookstore_id, processed))
+        conn.rollback()
+        writer.log("failed", processed)
         conn.commit()
-        print(f"Error durante la sincronización: {e}")
+        print(f"[{name}] ERROR: {e}")
+        return False
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Sincroniza planillas de stock de LibrosUy")
+    parser.add_argument("--store-id", type=int, help="bookstore_id de una sola librería")
+    args = parser.parse_args()
+
+    conn = get_db_connection(direct=True)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT bookstore_id, name, sheet_url FROM bookstores
+                WHERE is_active AND sheet_url IS NOT NULL AND (%(id)s::int IS NULL OR bookstore_id = %(id)s)
+                ORDER BY bookstore_id
+            """, {"id": args.store_id})
+            stores = cur.fetchall()
+        conn.commit()
+        if not stores:
+            print("No hay librerías con sheet_url cargado.")
+            return 0
+        results = [sync_store(conn, *store) for store in stores]
     finally:
-        cursor.close()
         conn.close()
+    return 0 if all(results) else 1
+
 
 if __name__ == "__main__":
-    print("Para sincronizar una planilla, configurá SHEET_CSV_URL y ejecutá sync_stock_from_sheet().")
+    sys.exit(main())

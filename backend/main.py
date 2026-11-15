@@ -1,12 +1,13 @@
 import os
 import logging
+import unicodedata
 from functools import lru_cache
 
 import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from db import get_db_connection
+from db import escape_like, get_db_connection
 
 logger = logging.getLogger("librosuy")
 
@@ -40,9 +41,13 @@ DIRECT_GENRE_KEYWORDS = ["Manga", "Cómics", "Fantasía", "Historia", "Usados", 
 
 app = FastAPI(title="LibrosUy API", description="Agregador de librerías y stock de libros en Uruguay.")
 
+# Comma-separated list of allowed frontend origins in production, e.g.
+# ALLOWED_ORIGINS=https://librosuy.com.uy,https://librosuy.vercel.app  (default: any origin)
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -57,11 +62,16 @@ STOCK_SOURCE_SQL = """
         WHEN EXISTS (SELECT 1 FROM sync_logs l
                      WHERE l.bookstore_id = s.bookstore_id
                        AND l.status IN ('success', 'partial')
-                       AND l.executed_at >= DATEADD(day, -14, GETDATE())) THEN 'verified'
+                       AND l.executed_at >= now() - interval '14 days') THEN 'verified'
         WHEN s.ingestion_method = 'google_sheets' THEN 'pending_sheet'
         ELSE 'unverified'
     END
 """
+
+
+def strip_accents(text: str) -> str:
+    """'Fantasía' -> 'fantasia' so typed genre keywords match with or without accents."""
+    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
 
 
 def split_tags(specialty):
@@ -111,11 +121,6 @@ def map_categories_to_tags(google_categories):
     return matched_tags
 
 
-def escape_like(text: str) -> str:
-    """Escapes SQL Server LIKE wildcards so user input is matched literally."""
-    return text.replace("[", "[[]").replace("%", "[%]").replace("_", "[_]")
-
-
 @app.get("/")
 def read_root():
     return {"message": "LibrosUy API operational."}
@@ -132,7 +137,7 @@ def get_stores():
                    s.latitude, s.longitude, s.ingestion_method, s.sync_frequency, s.featured, s.whatsapp,
                    s.instagram, {STOCK_SOURCE_SQL} AS stock_source
             FROM bookstores s
-            WHERE s.is_active = 1
+            WHERE s.is_active
             ORDER BY s.featured DESC, s.name ASC
         """)
         rows = cursor.fetchall()
@@ -182,17 +187,19 @@ def search_book(title: str):
 
         # 1. Check direct stock in SQL database
         cursor.execute("""
-            SELECT TOP 60 b.title, b.author, b.isbn, s.name, s.address, s.department, s.website,
+            SELECT b.title, b.author, b.isbn, s.name, s.address, s.department, s.website,
                    i.price_uyu, i.stock_quantity, i.condition, i.product_url,
                    s.bookstore_id, s.whatsapp
             FROM inventory_stock i
             JOIN books b ON i.book_id = b.book_id
             JOIN bookstores s ON i.bookstore_id = s.bookstore_id
-            WHERE (b.title LIKE ? OR b.author LIKE ? OR b.isbn LIKE ? OR b.genre LIKE ?)
+            WHERE (unaccent(b.title) ILIKE unaccent(%(q)s) OR unaccent(b.author) ILIKE unaccent(%(q)s)
+                   OR b.isbn ILIKE %(q)s OR unaccent(b.genre) ILIKE unaccent(%(q)s))
               AND i.stock_quantity > 0
-              AND s.is_active = 1
-            ORDER BY i.price_uyu ASC
-        """, (like_pattern, like_pattern, like_pattern, like_pattern))
+              AND s.is_active
+            ORDER BY i.price_uyu ASC NULLS LAST
+            LIMIT 60
+        """, {"q": like_pattern})
 
         in_stock_offers = [
             {
@@ -219,8 +226,11 @@ def search_book(title: str):
         # 2a. Genre of matching books in our own catalog (works even if Google is down)
         cursor.execute("""
             SELECT DISTINCT genre FROM books
-            WHERE genre IS NOT NULL AND (title LIKE ? OR author LIKE ? OR isbn LIKE ?)
-        """, (like_pattern, like_pattern, like_pattern))
+            WHERE genre IS NOT NULL
+              AND (unaccent(title) ILIKE unaccent(%(q)s) OR unaccent(author) ILIKE unaccent(%(q)s)
+                   OR isbn ILIKE %(q)s)
+            LIMIT 50
+        """, {"q": like_pattern})
         for (genre,) in cursor.fetchall():
             matched_tags.update(split_tags(genre))
 
@@ -229,8 +239,9 @@ def search_book(title: str):
         matched_tags.update(map_categories_to_tags(google_cats))
 
         # 2c. Genre keywords typed directly by the user
+        normalized_query = strip_accents(query)
         for keyword in DIRECT_GENRE_KEYWORDS:
-            if keyword.lower() in query.lower():
+            if strip_accents(keyword) in normalized_query:
                 matched_tags.add(keyword)
 
         # 2d. Nothing identified: general-catalog stores can usually order any title
@@ -238,7 +249,7 @@ def search_book(title: str):
             matched_tags.add(GENERAL_TAG)
 
         matched_tags = sorted(matched_tags)
-        conditions = " OR ".join(["s.specialty LIKE ?" for _ in matched_tags])
+        conditions = " OR ".join(["unaccent(s.specialty) ILIKE unaccent(%s)" for _ in matched_tags])
         params = [f"%{escape_like(tag)}%" for tag in matched_tags]
         # Stores that can't confirm stock come first: they may have the book even if it's not indexed
         cursor.execute(f"""
@@ -246,7 +257,7 @@ def search_book(title: str):
                 SELECT s.bookstore_id, s.name, s.website, s.specialty, s.address, s.department,
                        s.featured, s.whatsapp, s.instagram, {STOCK_SOURCE_SQL} AS stock_source
                 FROM bookstores s
-                WHERE s.is_active = 1 AND ({conditions})
+                WHERE s.is_active AND ({conditions})
             ) r
             ORDER BY CASE r.stock_source WHEN 'verified' THEN 1 ELSE 0 END, r.featured DESC, r.name ASC
         """, params)

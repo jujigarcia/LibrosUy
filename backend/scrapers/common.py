@@ -145,71 +145,147 @@ def clean_isbn(raw: str) -> str | None:
 
 
 class StockWriter:
-    """Upserts scraped offers into books + inventory_stock for one bookstore."""
+    """Buffers scraped offers for one bookstore and writes them to PostgreSQL in batches.
 
-    def __init__(self, conn, bookstore_id: int):
+    The database is remote (Neon), so each round trip costs ~150 ms: instead of 2-3 queries
+    per product, each page of products is written with ~4 set-based queries on `commit()`.
+    """
+
+    def __init__(self, conn, bookstore_id: int, channel: str = "web_scraper"):
         self.conn = conn
-        self.cursor = conn.cursor()
         self.bookstore_id = bookstore_id
-        self.cursor.execute("SELECT GETDATE()")
-        self.run_started = self.cursor.fetchone()[0]
-
-    def _get_or_create_book(self, isbn, title, author, genre, cover_url):
-        if isbn:
-            self.cursor.execute("SELECT book_id FROM books WHERE isbn = ?", (isbn,))
-        else:
-            self.cursor.execute(
-                "SELECT TOP 1 book_id FROM books WHERE title = ? AND ISNULL(author, '') = ?",
-                (title, author or ""),
-            )
-        row = self.cursor.fetchone()
-        if row:
-            # Fill in metadata the catalog was missing
-            self.cursor.execute("""
-                UPDATE books SET author = COALESCE(author, ?), genre = COALESCE(genre, ?),
-                                 cover_url = COALESCE(cover_url, ?)
-                WHERE book_id = ?
-            """, (author, genre, cover_url, row[0]))
-            return row[0]
-
-        self.cursor.execute(
-            "INSERT INTO books (isbn, title, author, genre, cover_url) OUTPUT INSERTED.book_id VALUES (?, ?, ?, ?, ?)",
-            (isbn, title, author, genre, cover_url),
-        )
-        return self.cursor.fetchone()[0]
+        self.channel = channel
+        self._pending = []
+        with conn.cursor() as cur:
+            cur.execute("SELECT now()")
+            self.run_started = cur.fetchone()[0]
+        conn.commit()
 
     def upsert_offer(self, *, external_id, isbn, title, author, genre, cover_url,
                      price_uyu, stock_quantity, condition, product_url):
-        book_id = self._get_or_create_book(isbn, title[:255], (author or None) and author[:255], genre, cover_url)
-        self.cursor.execute(
-            "SELECT stock_id FROM inventory_stock WHERE bookstore_id = ? AND external_id = ?",
-            (self.bookstore_id, external_id),
-        )
-        row = self.cursor.fetchone()
-        if row:
-            self.cursor.execute("""
-                UPDATE inventory_stock
-                SET book_id = ?, price_uyu = ?, stock_quantity = ?, condition = ?, product_url = ?,
-                    last_updated = GETDATE()
-                WHERE stock_id = ?
-            """, (book_id, price_uyu, stock_quantity, condition, product_url, row[0]))
-        else:
-            self.cursor.execute("""
-                INSERT INTO inventory_stock (bookstore_id, book_id, price_uyu, stock_quantity, condition,
-                                             product_url, external_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (self.bookstore_id, book_id, price_uyu, stock_quantity, condition, product_url, external_id))
+        title = (title or "").strip()
+        if not title or not external_id:
+            return
+        self._pending.append({
+            "external_id": str(external_id)[:150],
+            "isbn": isbn or None,
+            "title": title[:500],
+            "author": (author or "").strip()[:255] or None,
+            "genre": genre or None,
+            "cover_url": cover_url or None,
+            "price_uyu": price_uyu,
+            "stock_quantity": int(stock_quantity or 0),
+            "condition": condition or "Nuevo",
+            "product_url": product_url or None,
+        })
+
+    def commit(self):
+        """Writes the buffered offers and commits (call once per scraped page)."""
+        self.flush()
+        self.conn.commit()
+
+    def flush(self):
+        if not self._pending:
+            return
+        # Last occurrence wins if the store lists the same product twice in a batch
+        items = list({it["external_id"]: it for it in self._pending}.values())
+        self._pending = []
+
+        with self.conn.cursor() as cur:
+            book_ids = self._upsert_books_with_isbn(cur, items)
+            book_ids.update(self._get_or_create_books_without_isbn(cur, items))
+
+            rows = [it for it in items]
+            cur.execute("""
+                INSERT INTO inventory_stock (bookstore_id, book_id, price_uyu, stock_quantity,
+                                             condition, product_url, external_id)
+                SELECT %s, * FROM unnest(%s::int[], %s::numeric[], %s::int[], %s::varchar[],
+                                         %s::text[], %s::varchar[])
+                ON CONFLICT (bookstore_id, external_id) WHERE external_id IS NOT NULL DO UPDATE SET
+                    book_id = EXCLUDED.book_id, price_uyu = EXCLUDED.price_uyu,
+                    stock_quantity = EXCLUDED.stock_quantity, condition = EXCLUDED.condition,
+                    product_url = EXCLUDED.product_url, last_updated = now()
+            """, (
+                self.bookstore_id,
+                [book_ids[self._book_key(it)] for it in rows],
+                [it["price_uyu"] for it in rows],
+                [it["stock_quantity"] for it in rows],
+                [it["condition"] for it in rows],
+                [it["product_url"] for it in rows],
+                [it["external_id"] for it in rows],
+            ))
+
+    @staticmethod
+    def _book_key(item):
+        return ("isbn", item["isbn"]) if item["isbn"] else ("title", item["title"], item["author"] or "")
+
+    @staticmethod
+    def _columns(rows):
+        return ([r["title"] for r in rows], [r["author"] for r in rows],
+                [r["genre"] for r in rows], [r["cover_url"] for r in rows])
+
+    def _upsert_books_with_isbn(self, cur, items):
+        by_isbn = {}
+        for it in items:
+            if it["isbn"]:
+                by_isbn.setdefault(it["isbn"], it)
+        if not by_isbn:
+            return {}
+        rows = list(by_isbn.values())
+        # DO UPDATE (not DO NOTHING) so RETURNING also yields existing books; only fills missing metadata
+        cur.execute("""
+            INSERT INTO books (isbn, title, author, genre, cover_url)
+            SELECT * FROM unnest(%s::varchar[], %s::text[], %s::text[], %s::text[], %s::text[])
+            ON CONFLICT (isbn) WHERE isbn IS NOT NULL DO UPDATE SET
+                author = COALESCE(books.author, EXCLUDED.author),
+                genre = COALESCE(books.genre, EXCLUDED.genre),
+                cover_url = COALESCE(books.cover_url, EXCLUDED.cover_url)
+            RETURNING book_id, isbn
+        """, ([r["isbn"] for r in rows], *self._columns(rows)))
+        return {("isbn", isbn): book_id for book_id, isbn in cur.fetchall()}
+
+    def _get_or_create_books_without_isbn(self, cur, items):
+        by_key = {}
+        for it in items:
+            if not it["isbn"]:
+                by_key.setdefault((it["title"], it["author"] or ""), it)
+        if not by_key:
+            return {}
+        titles = [k[0] for k in by_key]
+        authors = [k[1] for k in by_key]
+        cur.execute("""
+            SELECT DISTINCT ON (b.title, COALESCE(b.author, '')) b.book_id, b.title, COALESCE(b.author, '')
+            FROM books b
+            JOIN unnest(%s::text[], %s::text[]) AS k(title, author)
+              ON b.title = k.title AND COALESCE(b.author, '') = k.author
+            ORDER BY b.title, COALESCE(b.author, ''), b.book_id
+        """, (titles, authors))
+        found = {("title", t, a): book_id for book_id, t, a in cur.fetchall()}
+
+        missing = [it for key, it in by_key.items() if ("title", *key) not in found]
+        if missing:
+            cur.execute("""
+                INSERT INTO books (title, author, genre, cover_url)
+                SELECT * FROM unnest(%s::text[], %s::text[], %s::text[], %s::text[])
+                RETURNING book_id, title, COALESCE(author, '')
+            """, self._columns(missing))
+            found.update({("title", t, a): book_id for book_id, t, a in cur.fetchall()})
+        return found
 
     def mark_unseen_out_of_stock(self) -> int:
         """After a COMPLETE run: products that disappeared from the store are set to 0 stock."""
-        self.cursor.execute("""
-            UPDATE inventory_stock SET stock_quantity = 0
-            WHERE bookstore_id = ? AND external_id IS NOT NULL AND last_updated < ?
-        """, (self.bookstore_id, self.run_started))
-        return self.cursor.rowcount
+        self.flush()
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                UPDATE inventory_stock SET stock_quantity = 0
+                WHERE bookstore_id = %s AND external_id IS NOT NULL AND last_updated < %s
+                  AND stock_quantity <> 0
+            """, (self.bookstore_id, self.run_started))
+            return cur.rowcount
 
     def log(self, status: str, records: int):
-        self.cursor.execute("""
-            INSERT INTO sync_logs (bookstore_id, sync_channel, status, records_processed)
-            VALUES (?, 'web_scraper', ?, ?)
-        """, (self.bookstore_id, status, records))
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO sync_logs (bookstore_id, sync_channel, status, records_processed)
+                VALUES (%s, %s, %s, %s)
+            """, (self.bookstore_id, self.channel, status, records))
