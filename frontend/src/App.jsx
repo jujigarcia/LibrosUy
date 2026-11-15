@@ -1,133 +1,348 @@
-import React, { useState } from 'react';
-import { Search, MapPin, Phone, BookOpen, Bookmark, Star } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, MapPin, Globe, BookOpen, Bookmark, Star, Trash2, Sparkles, RefreshCw, MessageCircle } from 'lucide-react';
 import StoreMap from './StoreMap';
+
+// Fallback list of all 29 bookstores so the UI works even before the backend is started
+const FALLBACK_STORES = [
+  { id: 1, name: "Librería Puro Verso", website: "puroverso.uy", specialty: "Ficción, No Ficción, Poesía, Juvenil", tags: ["Ficción", "No Ficción", "Poesía", "Juvenil"], address: "Av. 18 de Julio / Sarandí 675", department: "Montevideo", latitude: -34.9065, longitude: -56.2023, ingestion_method: "web_scraper", featured: true },
+  { id: 2, name: "Escaramuza", website: "escaramuza.com.uy", specialty: "Catálogo General, Infantil, Café", tags: ["Catálogo General", "Infantil", "Café"], address: "Dr. Pablo de María 1185", department: "Montevideo", latitude: -34.9080, longitude: -56.1712, ingestion_method: "web_scraper", featured: true },
+  { id: 3, name: "Isadora Libros", website: "isadoralibros.com.uy", specialty: "Cómics, Medicina, Ficción", tags: ["Cómics", "Medicina", "Ficción"], address: "José Ellauri 661", department: "Montevideo", latitude: -34.9165, longitude: -56.1568, ingestion_method: "web_scraper", featured: false },
+  { id: 4, name: "Babilonia Libros", website: "babilonia.uy", specialty: "Usados, Raros, Agotados", tags: ["Usados", "Raros", "Agotados"], address: "Dr. Tristán Narvaja 1591", department: "Montevideo", latitude: -34.9015, longitude: -56.1764, ingestion_method: "web_scraper", featured: true },
+  { id: 5, name: "El Virrey", website: "libreriaelvirrey.com.uy", specialty: "Bestsellers, Novedades", tags: ["Bestsellers", "Novedades"], address: "21 de Setiembre", department: "Montevideo", latitude: -34.9142, longitude: -56.1589, ingestion_method: "web_scraper", featured: false },
+  { id: 6, name: "Bookshop", website: "bookshop.com.uy", specialty: "Inglés, Catálogo General, Juvenil", tags: ["Inglés", "Catálogo General", "Juvenil"], address: "José Enrique Rodó", department: "Montevideo", latitude: -34.9048, longitude: -56.1742, ingestion_method: "web_scraper", featured: true },
+  { id: 7, name: "Mosca", website: "mosca.com.uy", specialty: "Literatura, Educativos, Escolares", tags: ["Literatura", "Educativos", "Escolares"], address: "Av. 18 de Julio", department: "Montevideo", latitude: -34.9058, longitude: -56.1852, ingestion_method: "web_scraper", featured: true },
+  { id: 8, name: "Grupo Libros", website: "grupolibros.com.uy", specialty: "Catálogo General", tags: ["Catálogo General"], address: "Tienda Online", department: "Online", latitude: null, longitude: null, ingestion_method: "web_scraper", featured: false },
+  { id: 9, name: "Diomedes", website: "librosleidos.com.uy", specialty: "Usados, Raros", tags: ["Usados", "Raros"], address: "Tienda Online", department: "Online", latitude: null, longitude: null, ingestion_method: "web_scraper", featured: false },
+  { id: 10, name: "Entrelibros", website: "entrelibros.com.uy", specialty: "Catálogo General", tags: ["Catálogo General"], address: "Tienda Online", department: "Online", latitude: null, longitude: null, ingestion_method: "web_scraper", featured: false },
+  { id: 11, name: "Planetadelibros Uruguay", website: "planetadelibros.com.uy", specialty: "Editorial, Ficción, Juvenil", tags: ["Editorial", "Ficción", "Juvenil"], address: "Tienda Online", department: "Online", latitude: null, longitude: null, ingestion_method: "web_scraper", featured: false },
+  { id: 12, name: "Librería El Altillo", website: null, specialty: "Catálogo General, Local", tags: ["Catálogo General", "Local"], address: "Ciudad de la Costa", department: "Canelones", latitude: -34.8222, longitude: -55.9547, ingestion_method: "google_sheets", featured: false },
+  { id: 13, name: "Librería Ofipando", website: null, specialty: "Catálogo General, Local, Escolares", tags: ["Catálogo General", "Local", "Escolares"], address: "Pando", department: "Canelones", latitude: -34.7167, longitude: -55.9583, ingestion_method: "google_sheets", featured: true },
+  { id: 14, name: "La Madriguera Libros", website: null, specialty: "Catálogo General, Local", tags: ["Catálogo General", "Local"], address: "Canelones", department: "Canelones", latitude: -34.5228, longitude: -56.2778, ingestion_method: "google_sheets", featured: false },
+  { id: 15, name: "Espacio Chamangá", website: null, specialty: "Independiente, Literatura", tags: ["Independiente", "Literatura"], address: "Maldonado", department: "Maldonado", latitude: -34.9000, longitude: -54.9500, ingestion_method: "google_sheets", featured: false },
+  { id: 16, name: "Bookshop (Salto)", website: "bookshop.com.uy", specialty: "Catálogo General", tags: ["Catálogo General"], address: "Salto", department: "Salto", latitude: -31.3833, longitude: -57.9667, ingestion_method: "web_scraper", featured: false },
+  { id: 17, name: "Bookshop (Rivera)", website: "bookshop.com.uy", specialty: "Catálogo General", tags: ["Catálogo General"], address: "Rivera", department: "Rivera", latitude: -30.9053, longitude: -55.5508, ingestion_method: "web_scraper", featured: false },
+  { id: 18, name: "Librería Entre Libros", website: null, specialty: "Catálogo General", tags: ["Catálogo General"], address: "Paysandú", department: "Paysandú", latitude: -32.3214, longitude: -58.0756, ingestion_method: "google_sheets", featured: false },
+  { id: 19, name: "Origami Libros", website: null, specialty: "Catálogo General", tags: ["Catálogo General"], address: "Colonia del Sacramento", department: "Colonia", latitude: -34.4626, longitude: -57.8398, ingestion_method: "google_sheets", featured: false },
+  { id: 20, name: "Noctiluca", website: null, specialty: "Librería Itinerante", tags: ["Librería Itinerante", "Independiente"], address: "Móvil (VW Kombi - 19 departamentos)", department: "Móvil", latitude: -34.6000, longitude: -56.0000, ingestion_method: "google_sheets", featured: true },
+  { id: 21, name: "Lecturas Cómics", website: "lecturascomics.com.uy", specialty: "Cómics, Manga", tags: ["Cómics", "Manga"], address: "Colonia 892", department: "Montevideo", latitude: -34.9042, longitude: -56.1965, ingestion_method: "web_scraper", featured: true },
+  { id: 22, name: "Librería Pocho", website: "libreriapocho.com.uy", specialty: "Manga, Educativos, General", tags: ["Manga", "Educativos", "General"], address: "Av. 18 de Julio 2198", department: "Montevideo", latitude: -34.9012, longitude: -56.1668, ingestion_method: "web_scraper", featured: false },
+  { id: 23, name: "Franca Comics", website: "francacomics.uy", specialty: "Cómics, Manga", tags: ["Cómics", "Manga"], address: "Rafael Pérez del Puerto 736", department: "Maldonado", latitude: -34.9088, longitude: -54.9581, ingestion_method: "web_scraper", featured: false },
+  { id: 24, name: "Librería Lannister", website: "librerialannister.com", specialty: "Manga, Cómics, Fantasía", tags: ["Manga", "Cómics", "Fantasía"], address: "Tienda Online", department: "Online", latitude: null, longitude: null, ingestion_method: "web_scraper", featured: false },
+  { id: 25, name: "Librería Vila", website: "libreriavila.com.uy", specialty: "Manga, Cómics, Textos Estudio", tags: ["Manga", "Cómics", "Textos Estudio"], address: "Tristán Narvaja 1642", department: "Montevideo", latitude: -34.9008, longitude: -56.1762, ingestion_method: "web_scraper", featured: false },
+  { id: 26, name: "Librería Vanir", website: "vanir.com.uy", specialty: "Juvenil, Fantasía, Tarot", tags: ["Juvenil", "Fantasía", "Tarot"], address: "Belgrano 2934 BIS", department: "Montevideo", latitude: -34.8875, longitude: -56.1552, ingestion_method: "web_scraper", featured: true },
+  { id: 27, name: "Las Karamazov", website: "laskaramazov.com.uy", specialty: "Literatura Independiente, Ficción", tags: ["Literatura Independiente", "Ficción"], address: "Av. Rivera 2670", department: "Montevideo", latitude: -34.9035, longitude: -56.1538, ingestion_method: "web_scraper", featured: true },
+  { id: 28, name: "Rizoma", website: "rizomalajuanita.com", specialty: "Catálogo Curado, Café, Libros", tags: ["Catálogo Curado", "Café", "Arte"], address: "La Juanita, José Ignacio", department: "Maldonado", latitude: -34.8415, longitude: -54.6522, ingestion_method: "web_scraper", featured: false },
+  { id: 29, name: "Librería Montevideo", website: "libreriamontevideo.com", specialty: "Catálogo General, Historia", tags: ["Catálogo General", "Historia"], address: "Montevideo", department: "Montevideo", latitude: -34.9055, longitude: -56.1915, ingestion_method: "web_scraper", featured: false }
+];
+
+const QUICK_GENRES = ["Ficción", "Fantasía", "Manga", "Cómics", "Juvenil", "Historia", "Usados", "Poesía"];
+
+// Normalizes a Uruguayan phone number to the international format wa.me expects (e.g. 59899123456)
+const toWhatsAppNumber = (raw) => {
+  if (!raw) return null;
+  let digits = String(raw).replace(/\D/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (!digits.startsWith('598')) {
+    if (digits.startsWith('0')) digits = digits.slice(1);
+    if (digits.length === 8) digits = `598${digits}`;
+  }
+  return digits.length >= 10 ? digits : null;
+};
+
+const buildWhatsAppLink = (raw, message) => {
+  const number = toWhatsAppNumber(raw);
+  return number ? `https://wa.me/${number}?text=${encodeURIComponent(message)}` : null;
+};
+
+function WhatsAppButton({ number, message }) {
+  const link = buildWhatsAppLink(number, message);
+  const baseStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '7px 14px',
+    borderRadius: '8px',
+    fontSize: '0.8rem',
+    fontWeight: 700,
+    textDecoration: 'none',
+    whiteSpace: 'nowrap'
+  };
+
+  if (!link) {
+    return (
+      <span
+        title="Esta librería todavía no cargó su número de WhatsApp"
+        style={{ ...baseStyle, backgroundColor: '#f3f4f6', color: '#9ca3af', cursor: 'not-allowed' }}
+      >
+        <MessageCircle size={14} /> WhatsApp pendiente
+      </span>
+    );
+  }
+
+  return (
+    <a
+      href={link}
+      target="_blank"
+      rel="noreferrer"
+      style={{ ...baseStyle, backgroundColor: '#25d366', color: '#ffffff' }}
+    >
+      <MessageCircle size={14} /> Consultar por WhatsApp
+    </a>
+  );
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
+  const [stores, setStores] = useState(FALLBACK_STORES);
+  const [loadingStores, setLoadingStores] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const sampleStores = [
-    {
-      id: 1,
-      name: "Librería Puro Verso",
-      address: "Sarandí 675, Ciudad Vieja",
-      city: "Montevideo",
-      phone: "+598 2915 2589",
-      tags: ["Clásicos", "Historia", "Café Literario"],
-      featured: true
-    },
-    {
-      id: 2,
-      name: "Escaramuza Libros",
-      address: "Dr. Pablo de María 1185, Cordón",
-      city: "Montevideo",
-      phone: "+598 2401 3475",
-      tags: ["Literatura Infantil", "Filosofía", "Café"],
-      featured: true
-    },
-    {
-      id: 3,
-      name: "Bookshop Pocitos",
-      address: "Av. Brasil 2831, Pocitos",
-      city: "Montevideo",
-      phone: "+598 2707 1515",
-      tags: ["Novedades", "Bestsellers", "Juvenil"],
-      featured: false
-    }
-  ];
+  // Book & Genre Search state
+  const [bookQuery, setBookQuery] = useState('');
+  const [bookSearchLoading, setBookSearchLoading] = useState(false);
+  const [searchResult, setSearchResult] = useState(null);
 
-  const filteredStores = sampleStores.filter(store => {
-    const matchesSearch = store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          store.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          store.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesSearch;
+  // Saved Stores (Mi Lista) persisted in localStorage
+  const [savedStoreIds, setSavedStoreIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('librosuy_saved_stores');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
 
+  useEffect(() => {
+    fetch('http://127.0.0.1:8000/api/stores')
+      .then((res) => {
+        if (!res.ok) throw new Error('API offline');
+        return res.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setStores(data);
+        }
+        setLoadingStores(false);
+      })
+      .catch(() => {
+        // Uses the 29 fallback stores if backend isn't running yet
+        setLoadingStores(false);
+      });
+  }, []);
+
+  const toggleSaveStore = (storeId) => {
+    setSavedStoreIds((prev) => {
+      const updated = prev.includes(storeId)
+        ? prev.filter((id) => id !== storeId)
+        : [...prev, storeId];
+      localStorage.setItem('librosuy_saved_stores', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleBookSearch = async (queryText) => {
+    const q = (queryText ?? bookQuery).trim();
+    if (!q) return;
+    setBookQuery(q);
+    setBookSearchLoading(true);
+
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/api/search?title=${encodeURIComponent(q)}`);
+      if (!res.ok) throw new Error('Error en servidor');
+      const data = await res.json();
+      setSearchResult(data);
+    } catch {
+      // Offline fallback: match against local 29 stores by tag/specialty,
+      // or recommend general-catalog stores that can usually order any title
+      const matched = stores.filter((s) =>
+        (s.specialty || '').toLowerCase().includes(q.toLowerCase()) ||
+        s.name.toLowerCase().includes(q.toLowerCase())
+      );
+      const general = stores.filter((s) => (s.specialty || '').includes('Catálogo General'));
+      setSearchResult({
+        query: q,
+        book_metadata: null,
+        matched_genres: matched.length > 0 ? [q] : ['Catálogo General'],
+        in_stock_offers: [],
+        recommended_stores: matched.length > 0 ? matched : general
+      });
+    } finally {
+      setBookSearchLoading(false);
+    }
+  };
+
+  const filteredStores = stores.filter((store) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      store.name.toLowerCase().includes(q) ||
+      store.address.toLowerCase().includes(q) ||
+      (store.department && store.department.toLowerCase().includes(q)) ||
+      (store.tags && store.tags.some((tag) => tag.toLowerCase().includes(q)))
+    );
+  });
+
+  const savedStoresList = stores.filter((s) => savedStoreIds.includes(s.id));
+
+  // bookQuery: when the card is shown as a search recommendation, the message asks for that book
+  const renderStoreCard = (store, bookQuery = null) => {
+    const isSaved = savedStoreIds.includes(store.id);
+    const whatsappMessage = bookQuery
+      ? `¡Hola ${store.name}! Estoy buscando el libro "${bookQuery}" y los encontré en LibrosUy. ¿Lo tienen o podrían conseguirlo por encargo?`
+      : `¡Hola ${store.name}! Los encontré en LibrosUy y quería hacerles una consulta.`;
+    return (
+      <div
+        key={store.id}
+        style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '14px',
+          border: '1px solid #e9d5ff',
+          padding: '22px',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '10px' }}>
+            <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#374151' }}>{store.name}</h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {store.featured && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', backgroundColor: '#fef08a', color: '#854d0e', padding: '4px 8px', borderRadius: '9999px', fontWeight: 700 }}>
+                  <Star size={10} fill="#854d0e" /> Destacada
+                </span>
+              )}
+              <button
+                onClick={() => toggleSaveStore(store.id)}
+                title={isSaved ? "Quitar de Mi Lista" : "Guardar en Mi Lista"}
+                style={{
+                  border: '1px solid #e9d5ff',
+                  backgroundColor: isSaved ? '#fef08a' : '#faf5ff',
+                  borderRadius: '8px',
+                  padding: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                <Bookmark size={15} color="#6b21a8" fill={isSaved ? "#6b21a8" : "none"} />
+              </button>
+            </div>
+          </div>
+
+          <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0', fontSize: '0.88rem', color: '#6b7280' }}>
+            <MapPin size={15} color="#c084fc" /> {store.address} ({store.department})
+          </p>
+
+          {store.website ? (
+            <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0', fontSize: '0.88rem' }}>
+              <Globe size={15} color="#c084fc" />
+              <a href={`https://${store.website}`} target="_blank" rel="noreferrer" style={{ color: '#7e22ce', textDecoration: 'none', fontWeight: 600 }}>
+                {store.website}
+              </a>
+            </p>
+          ) : (
+            <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0', fontSize: '0.82rem', color: '#9ca3af' }}>
+              <RefreshCw size={14} color="#c084fc" /> Stock sincronizado vía Planilla / CSV
+            </p>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '14px' }}>
+          {(store.tags || []).map((tag, i) => (
+            <span key={i} style={{ fontSize: '0.73rem', backgroundColor: '#f3e8ff', color: '#7e22ce', padding: '4px 10px', borderRadius: '6px', fontWeight: 600 }}>
+              {tag}
+            </span>
+          ))}
+        </div>
+
+        <div style={{ marginTop: '14px' }}>
+          <WhatsAppButton number={store.whatsapp} message={whatsappMessage} />
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div style={{ 
-      minHeight: '100vh', 
+    <div style={{
+      minHeight: '100vh',
       fontFamily: 'system-ui, -apple-system, sans-serif',
       position: 'relative',
-      background: activeTab === 'home' 
+      background: activeTab === 'home'
         ? 'radial-gradient(circle at 30% 50%, #fdf4ff 0%, #fbcfe8 35%, #e9d5ff 70%, #ecfccb 100%)'
         : '#f9fafb'
     }}>
-      
-      {/* Navigation Bar */}
-      <header style={{ 
-        backgroundColor: activeTab === 'home' ? 'transparent' : '#ffffff', 
-        borderBottom: activeTab === 'home' ? 'none' : '1px solid #e9d5ff', 
-        position: activeTab === 'home' ? 'absolute' : 'sticky', 
-        top: 0, 
+
+      {/* Top Navigation Bar */}
+      <header style={{
+        backgroundColor: activeTab === 'home' ? 'transparent' : '#ffffff',
+        borderBottom: activeTab === 'home' ? 'none' : '1px solid #e9d5ff',
+        position: activeTab === 'home' ? 'absolute' : 'sticky',
+        top: 0,
         left: 0,
         right: 0,
-        zIndex: 1000, 
-        padding: '30px 4%' 
+        zIndex: 1000,
+        padding: '30px 4%'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          
-          <div 
+          <div
             onClick={() => setActiveTab('home')}
             style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
           >
-            {/* Default logo in top left */}
             <BookOpen style={{ color: '#374151' }} size={28} strokeWidth={1} />
             <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#374151' }}>LibrosUy</span>
           </div>
 
           <nav style={{ display: 'flex', gap: '32px' }}>
-            <button 
+            <button
               onClick={() => setActiveTab('explore')}
               style={{
                 border: 'none',
                 backgroundColor: 'transparent',
-                color: '#374151',
+                color: activeTab === 'explore' ? '#7e22ce' : '#374151',
                 fontWeight: 800,
                 fontSize: '1rem',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
                 padding: 0
               }}
             >
-              Explorar Librerías
+              Explorar Librerías ({stores.length})
             </button>
-            <button 
+            <button
               onClick={() => setActiveTab('genres')}
               style={{
                 border: 'none',
                 backgroundColor: 'transparent',
-                color: '#374151',
+                color: activeTab === 'genres' ? '#7e22ce' : '#374151',
                 fontWeight: 800,
                 fontSize: '1rem',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
                 padding: 0
               }}
             >
               Buscar por Género
             </button>
-            <button 
+            <button
               onClick={() => setActiveTab('saved')}
               style={{
                 border: 'none',
                 backgroundColor: 'transparent',
-                color: '#374151',
+                color: activeTab === 'saved' ? '#7e22ce' : '#374151',
                 fontWeight: 800,
                 fontSize: '1rem',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
                 padding: 0
               }}
             >
-              Mi Lista
+              Mi Lista ({savedStoreIds.length})
             </button>
           </nav>
         </div>
       </header>
 
-      {/* Tab 0: Home */}
+      {/* TAB 0: HOME (Minimalist Landing Page) */}
       {activeTab === 'home' && (
-        <main style={{ 
+        <main style={{
           minHeight: '100vh',
           display: 'flex',
           alignItems: 'center',
@@ -135,11 +350,8 @@ export default function App() {
           padding: '0 8%',
           position: 'relative'
         }}>
-          
-          {/* Left Column: Typography & Branding */}
+          {/* Left Column: Stylized Logo & Hook */}
           <div style={{ flex: '1 1 50%', display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '40px' }}>
-            
-            {/* Stylized Center Logo */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px', color: '#374151' }}>
               <span style={{ fontSize: '5.5rem', fontWeight: 800, transform: 'rotate(-8deg)', letterSpacing: '-0.03em' }}>
                 Libros
@@ -148,24 +360,22 @@ export default function App() {
                 <span style={{ fontSize: '4.5rem', marginRight: '8px', transform: 'translateY(5px)' }}>✳</span>Uy
               </span>
             </div>
-            
-            {/* Marketing Phrase */}
-            <h1 style={{ 
-              fontSize: '4.2rem', 
-              fontWeight: 300, 
-              color: '#374151', 
-              lineHeight: '1.05', 
+
+            <h1 style={{
+              fontSize: '4.2rem',
+              fontWeight: 300,
+              color: '#374151',
+              lineHeight: '1.05',
               margin: 0,
               letterSpacing: '-0.03em',
               textAlign: 'center'
             }}>
-            La mejor forma de encontrar<br />tu libro
+              La mejor forma de encontrar<br />tu libro
             </h1>
           </div>
 
-          {/* Right Column: Line Art Book Graphic + Abstract Figure */}
+          {/* Right Column: Abstract Line Art + Open Book */}
           <div style={{ flex: '1 1 50%', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
-            
             <svg viewBox="0 0 200 200" style={{ position: 'absolute', width: '650px', height: '650px', zIndex: 0, opacity: 0.7 }}>
               <path d="M 0 80 Q 50 20 100 80 T 200 80" stroke="#ffffff" strokeWidth="1.5" fill="none" />
               <path d="M 0 100 Q 50 40 100 100 T 200 100" stroke="#ffffff" strokeWidth="1.5" fill="none" />
@@ -177,19 +387,18 @@ export default function App() {
               <path d="M 120 0 Q 60 50 120 100 T 120 200" stroke="#ffffff" strokeWidth="1.5" fill="none" />
               <path d="M 140 0 Q 80 50 140 100 T 140 200" stroke="#ffffff" strokeWidth="1.5" fill="none" />
             </svg>
-
             <BookOpen size={500} strokeWidth={1} color="#1f2937" style={{ zIndex: 1, position: 'relative', transform: 'rotate(8deg)' }} />
           </div>
 
-          {/* Disclaimer anchored to bottom left */}
-          <p style={{ 
+          {/* Bottom-left Disclaimer */}
+          <p style={{
             position: 'absolute',
             bottom: '40px',
             left: '4%',
-            fontSize: '0.75rem', 
-            fontWeight: 800, 
-            color: '#374151', 
-            textTransform: 'uppercase', 
+            fontSize: '0.75rem',
+            fontWeight: 800,
+            color: '#374151',
+            textTransform: 'uppercase',
             letterSpacing: '0.05em',
             margin: 0
           }}>
@@ -198,79 +407,235 @@ export default function App() {
         </main>
       )}
 
-      {/* Rest of the Tabs */}
+      {/* INNER TABS */}
       {activeTab !== 'home' && (
         <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
-          
+
+          {/* TAB 1: EXPLORAR LIBRERÍAS (Map + 29-Store Directory) */}
           {activeTab === 'explore' && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#4c1d95', margin: 0 }}>Mapa de Librerías en Uruguay</h2>
-              </div>
-              
-              <div style={{ maxWidth: '600px', marginBottom: '24px', display: 'flex', gap: '8px', backgroundColor: '#ffffff', padding: '6px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 20px 0' }}>
+                Explorar Librerías en Uruguay
+              </h2>
+
+              <div style={{ maxWidth: '640px', marginBottom: '24px', display: 'flex', gap: '8px', backgroundColor: '#ffffff', padding: '6px', borderRadius: '12px', border: '1px solid #e9d5ff' }}>
                 <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '12px', color: '#9ca3af' }}>
                   <Search size={20} />
                 </div>
                 <input
                   type="text"
-                  placeholder="Buscar librería por nombre o ubicación..."
+                  placeholder="Filtrar por nombre, departamento (ej. Canelones, Maldonado) o especialidad..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ flex: 1, border: 'none', outline: 'none', padding: '10px 8px', fontSize: '1rem' }}
+                  style={{ flex: 1, border: 'none', outline: 'none', padding: '10px 8px', fontSize: '0.98rem' }}
                 />
               </div>
 
-              <StoreMap />
+              <StoreMap stores={filteredStores} loading={loadingStores} />
 
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#6b21a8', marginBottom: '16px', marginTop: '40px' }}>
-                Directorio de Librerías
+              <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#6b21a8', marginBottom: '16px', marginTop: '36px' }}>
+                Directorio de Librerías ({filteredStores.length})
               </h3>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-                {filteredStores.map(store => (
-                  <div key={store.id} style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e9d5ff', padding: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                      <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#374151' }}>{store.name}</h4>
-                      {store.featured && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', backgroundColor: '#fef08a', color: '#854d0e', padding: '4px 8px', borderRadius: '9999px', fontWeight: 600 }}>
-                          <Star size={10} fill="#854d0e" /> Destacada
-                        </span>
-                      )}
-                    </div>
-                    <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', fontSize: '0.9rem', color: '#6b7280' }}>
-                      <MapPin size={16} color="#c084fc" /> {store.address}
-                    </p>
-                    <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', fontSize: '0.9rem', color: '#6b7280' }}>
-                      <Phone size={16} color="#c084fc" /> {store.phone}
-                    </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '16px' }}>
-                      {store.tags.map((tag, i) => (
-                        <span key={i} style={{ fontSize: '0.75rem', backgroundColor: '#f3e8ff', color: '#7e22ce', padding: '4px 10px', borderRadius: '6px', fontWeight: 500 }}>
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                {filteredStores.map((store) => renderStoreCard(store))}
               </div>
             </div>
           )}
 
+          {/* TAB 2: BUSCAR POR GÉNERO / LIBRO (Local Stock + Google Books API) */}
           {activeTab === 'genres' && (
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e9d5ff', padding: '60px 20px', textAlign: 'center' }}>
-              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#4c1d95', marginBottom: '12px' }}>Búsqueda por Género</h3>
-              <p style={{ color: '#6b7280', maxWidth: '500px', margin: '0 auto' }}>
-                Funcionalidad de búsqueda conectada a Google Books en desarrollo.
-              </p>
+            <div>
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', border: '1px solid #e9d5ff', padding: '36px 28px', marginBottom: '28px' }}>
+                <h2 style={{ fontSize: '1.9rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 8px 0' }}>
+                  Buscador Inteligente de Libros y Géneros
+                </h2>
+                <p style={{ color: '#6b7280', margin: '0 0 20px 0', fontSize: '0.98rem' }}>
+                  Buscá por título, autor, ISBN o género. Consultamos el stock indexado de las librerías y clasificamos el libro con Google Books API.
+                </p>
+
+                <form
+                  onSubmit={(e) => { e.preventDefault(); handleBookSearch(); }}
+                  style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}
+                >
+                  <div style={{ flex: '1 1 320px', display: 'flex', alignItems: 'center', backgroundColor: '#f9fafb', border: '2px solid #c084fc', borderRadius: '12px', padding: '4px 14px' }}>
+                    <Search size={18} color="#7e22ce" />
+                    <input
+                      type="text"
+                      value={bookQuery}
+                      onChange={(e) => setBookQuery(e.target.value)}
+                      placeholder="Ej: La tregua, Alas de sangre, Chainsaw Man, Galeano..."
+                      style={{ flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent', padding: '10px', fontSize: '1rem' }}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    style={{
+                      backgroundColor: '#7e22ce',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '12px',
+                      padding: '0 26px',
+                      fontWeight: 700,
+                      fontSize: '0.98rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {bookSearchLoading ? 'Buscando...' : 'Buscar Libro'}
+                  </button>
+                </form>
+
+                {/* Quick Genre Filter Pills */}
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <span style={{ fontSize: '0.82rem', color: '#6b7280', fontWeight: 600, marginRight: '4px' }}>
+                    Explorar género rápido:
+                  </span>
+                  {QUICK_GENRES.map((genre) => (
+                    <button
+                      key={genre}
+                      onClick={() => handleBookSearch(genre)}
+                      style={{
+                        backgroundColor: '#f3e8ff',
+                        color: '#6b21a8',
+                        border: '1px solid #e9d5ff',
+                        borderRadius: '9999px',
+                        padding: '5px 14px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {genre}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Search Results */}
+              {searchResult && (
+                <div>
+                  {/* 1. In-Stock Offers from SQL inventory_stock */}
+                  <div style={{ marginBottom: '32px' }}>
+                    <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#4c1d95', marginBottom: '12px' }}>
+                      📚 Copias en Stock Confirmado ({searchResult.in_stock_offers?.length || 0})
+                    </h3>
+                    {searchResult.in_stock_offers && searchResult.in_stock_offers.length > 0 ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                        {searchResult.in_stock_offers.map((offer, idx) => (
+                          <div key={idx} style={{ backgroundColor: '#ffffff', borderRadius: '14px', border: '2px solid #c084fc', padding: '20px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div>
+                                <span style={{ fontSize: '0.72rem', backgroundColor: '#fef08a', color: '#854d0e', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                                  {offer.condition} · Stock: {offer.stock_quantity}
+                                </span>
+                                <h4 style={{ margin: '8px 0 2px 0', fontSize: '1.1rem', color: '#1f2937' }}>{offer.book_title}</h4>
+                                <p style={{ margin: 0, fontSize: '0.85rem', color: '#6b7280' }}>{offer.author}</p>
+                              </div>
+                              {offer.price_uyu && (
+                                <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#4c1d95' }}>
+                                  ${offer.price_uyu} UYU
+                                </span>
+                              )}
+                            </div>
+                            <hr style={{ border: 'none', borderTop: '1px solid #f3e8ff', margin: '12px 0' }} />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <strong style={{ fontSize: '0.92rem', color: '#374151' }}>{offer.store_name}</strong>
+                                <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#6b7280' }}>
+                                  📍 {offer.address} ({offer.department})
+                                </p>
+                              </div>
+                              {offer.product_url && (
+                                <a
+                                  href={offer.product_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ backgroundColor: '#7e22ce', color: '#ffffff', textDecoration: 'none', padding: '7px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}
+                                >
+                                  Ver en Tienda
+                                </a>
+                              )}
+                            </div>
+                            <div style={{ marginTop: '12px' }}>
+                              <WhatsAppButton
+                                number={offer.whatsapp}
+                                message={`¡Hola ${offer.store_name}! Vi en LibrosUy que tienen "${offer.book_title}"${offer.author ? ` de ${offer.author}` : ''}${offer.price_uyu ? ` a $${offer.price_uyu} UYU` : ''} (${offer.condition}). ¿Sigue disponible?`}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ color: '#6b7280', backgroundColor: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+                        Por ahora no hay copias indexadas en stock, pero las librerías de abajo podrían conseguirlo por encargo: escribiles por WhatsApp.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* 2. Recommended Bookstores by Genre */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                      <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#4c1d95', margin: 0 }}>
+                        <Sparkles size={18} style={{ display: 'inline', marginRight: '6px' }} />
+                        Librerías que podrían conseguirlo por encargo ({searchResult.recommended_stores?.length || 0})
+                      </h3>
+                      {(searchResult.matched_genres || []).map((g, i) => (
+                        <span key={i} style={{ backgroundColor: '#fef08a', color: '#854d0e', padding: '4px 12px', borderRadius: '9999px', fontSize: '0.78rem', fontWeight: 700 }}>
+                          Género: {g}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                      {(searchResult.recommended_stores || []).map((store) => renderStoreCard(store, searchResult.query))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
+          {/* TAB 3: MI LISTA (Saved Bookstores) */}
           {activeTab === 'saved' && (
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e9d5ff', padding: '60px 20px', textAlign: 'center' }}>
-              <Bookmark size={40} color="#854d0e" style={{ margin: '0 auto 24px auto', fill: '#fef08a' }} />
-              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#4c1d95', marginBottom: '12px' }}>Tu lista guardada</h3>
-              <p style={{ color: '#6b7280' }}>Aún no guardaste ninguna librería favorita.</p>
+            <div>
+              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 20px 0' }}>
+                Mi Lista de Librerías Guardadas ({savedStoresList.length})
+              </h2>
+
+              {savedStoresList.length === 0 ? (
+                <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e9d5ff', padding: '60px 20px', textAlign: 'center' }}>
+                  <Bookmark size={40} color="#854d0e" style={{ margin: '0 auto 20px auto', fill: '#fef08a' }} />
+                  <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#4c1d95', marginBottom: '10px' }}>
+                    Tu lista está vacía
+                  </h3>
+                  <p style={{ color: '#6b7280', maxWidth: '460px', margin: '0 auto 20px auto' }}>
+                    Hacé clic en el ícono de marcador en cualquier librería de "Explorar Librerías" o "Buscar por Género" para guardarla acá.
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('explore')}
+                    style={{ backgroundColor: '#7e22ce', color: '#ffffff', border: 'none', borderRadius: '10px', padding: '10px 22px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Explorar las 29 Librerías
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={() => {
+                        setSavedStoreIds([]);
+                        localStorage.removeItem('librosuy_saved_stores');
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '8px', padding: '8px 14px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+                    >
+                      <Trash2 size={14} /> Vaciar Mi Lista
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                    {savedStoresList.map((store) => renderStoreCard(store))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>
