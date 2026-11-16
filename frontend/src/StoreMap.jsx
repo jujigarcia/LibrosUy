@@ -28,7 +28,7 @@ function StoreMap({ stores = [], loading = false, compact = false }) {
     <div style={{ marginTop: compact ? '12px' : '20px', marginBottom: compact ? '20px' : '30px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '4px 12px', marginBottom: '10px' }}>
         <h3 style={{ margin: 0, color: '#1f2937', fontSize: compact ? '1.05rem' : undefined }}>
-          {compact ? 'Mapa de librerías' : 'Mapa Interactivo (Montevideo e Interior)'}
+          Mapa interactivo Uruguay
         </h3>
         <span style={{ fontSize: compact ? '0.78rem' : '0.875rem', color: '#6b7280', fontWeight: 600 }}>
           {loading ? 'Cargando ubicaciones...' : `${geolocatedStores.length} librerías geolocalizadas en el mapa`}
@@ -40,7 +40,9 @@ function StoreMap({ stores = [], loading = false, compact = false }) {
           center={[-34.65, -56.05]}
           zoom={compact ? 6 : 8}
           minZoom={compact ? 6 : 7}
-          scrollWheelZoom={false}
+          scrollWheelZoom={true}
+          touchZoom={true}
+          zoomControl={true}
           maxBounds={URUGUAY_BOUNDS}
           maxBoundsViscosity={1.0}
           style={{ height: '100%', width: '100%' }}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Globe, BookOpen, Bookmark, Star, Trash2, RefreshCw, MessageCircle, AlertTriangle, FileSpreadsheet, Instagram, Info, Home } from 'lucide-react';
+import { Search, MapPin, Globe, BookOpen, Bookmark, Trash2, RefreshCw, Clock, Instagram, Info, Home, ExternalLink } from 'lucide-react';
 import StoreMap from './StoreMap';
 
 // Fallback list of all 29 bookstores so the UI works even before the backend is started
@@ -58,7 +58,16 @@ const buildWhatsAppLink = (raw, message) => {
   return number ? `https://wa.me/${number}?text=${encodeURIComponent(message)}` : null;
 };
 
-// How much we can trust a store's stock on LibrosUy (stock_source from the API)
+// How much we can trust a store's stock on LibrosUy (stock_source from the API).
+// Neutral wording: missing stock is on LibrosUy's side, not the bookstore's.
+const NO_STOCK_YET = {
+  Icon: Clock,
+  label: 'Aún no tenemos su stock',
+  color: '#475569',
+  background: '#f1f5f9',
+  detail: 'Todavía no tenemos el stock de esta librería en LibrosUy.',
+  searchDetail: 'Todavía no tenemos su stock en LibrosUy: puede tener el libro.'
+};
 const STOCK_NOTICES = {
   verified: {
     Icon: RefreshCw,
@@ -68,23 +77,18 @@ const STOCK_NOTICES = {
     detail: 'Su stock se sincroniza con LibrosUy.',
     searchDetail: 'No figura en su stock en línea, pero podés consultar si lo consiguen por encargo.'
   },
-  unverified: {
-    Icon: AlertTriangle,
-    label: 'Stock no verificado',
-    color: '#92400e',
-    background: '#fef3c7',
-    detail: 'No podemos leer su stock en línea: consultá disponibilidad directamente.',
-    searchDetail: 'No podemos confirmar su stock: puede tener el libro. Consultales antes de ir.'
-  },
-  pending_sheet: {
-    Icon: FileSpreadsheet,
-    label: 'Planilla de stock pendiente',
-    color: '#1e40af',
-    background: '#dbeafe',
-    detail: 'Todavía no recibimos su planilla de stock: consultá disponibilidad directamente.',
-    searchDetail: 'Todavía no tenemos su planilla de stock: puede tener el libro. Consultales antes de ir.'
-  }
+  unverified: NO_STOCK_YET,
+  pending_sheet: NO_STOCK_YET
 };
+
+// Official WhatsApp glyph (Simple Icons, CC0)
+function WhatsAppIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+    </svg>
+  );
+}
 
 function StockNotice({ source, inSearch = false }) {
   const notice = STOCK_NOTICES[source];
@@ -122,39 +126,31 @@ const CARD_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, min
 
 function WhatsAppButton({ number, message, block = false }) {
   const link = buildWhatsAppLink(number, message);
-  const baseStyle = {
-    display: block ? 'flex' : 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '6px',
-    padding: block ? '12px 14px' : '7px 14px',
-    minHeight: block ? '44px' : undefined,
-    borderRadius: '8px',
-    fontSize: '0.8rem',
-    fontWeight: 700,
-    textDecoration: 'none',
-    whiteSpace: 'nowrap'
-  };
-
-  if (!link) {
-    return (
-      <span
-        title="Esta librería todavía no cargó su número de WhatsApp"
-        style={{ ...baseStyle, backgroundColor: '#f3f4f6', color: '#9ca3af', cursor: 'not-allowed' }}
-      >
-        <MessageCircle size={14} /> WhatsApp pendiente
-      </span>
-    );
-  }
+  if (!link) return null; // No number yet: show nothing rather than a disabled button
 
   return (
     <a
       href={link}
       target="_blank"
       rel="noreferrer"
-      style={{ ...baseStyle, backgroundColor: '#25d366', color: '#ffffff' }}
+      aria-label="Consultar por WhatsApp"
+      style={{
+        display: block ? 'flex' : 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '7px',
+        padding: block ? '11px 16px' : '8px 14px',
+        minHeight: block ? '44px' : '36px',
+        borderRadius: '9999px',
+        backgroundColor: '#25d366',
+        color: '#ffffff',
+        fontSize: '0.85rem',
+        fontWeight: 700,
+        textDecoration: 'none',
+        whiteSpace: 'nowrap'
+      }}
     >
-      <MessageCircle size={14} /> Consultar por WhatsApp
+      <WhatsAppIcon size={block ? 18 : 16} /> Consultar aquí
     </a>
   );
 }
@@ -276,11 +272,6 @@ export default function App() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '10px' }}>
             <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#374151' }}>{store.name}</h4>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {store.featured && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', backgroundColor: '#fef08a', color: '#854d0e', padding: '4px 8px', borderRadius: '9999px', fontWeight: 700 }}>
-                  <Star size={10} fill="#854d0e" /> Destacada
-                </span>
-              )}
               <button
                 onClick={() => toggleSaveStore(store.id)}
                 title={isSaved ? "Quitar de Mi Lista" : "Guardar en Mi Lista"}
@@ -333,9 +324,11 @@ export default function App() {
 
         <StockNotice source={store.stock_source} inSearch={Boolean(bookQuery)} />
 
-        <div style={{ marginTop: '14px' }}>
-          <WhatsAppButton number={store.whatsapp} message={whatsappMessage} block={isMobile} />
-        </div>
+        {store.whatsapp && (
+          <div style={{ marginTop: '14px' }}>
+            <WhatsAppButton number={store.whatsapp} message={whatsappMessage} block={isMobile} />
+          </div>
+        )}
       </div>
     );
   };
@@ -398,7 +391,7 @@ export default function App() {
                 padding: 0
               }}
             >
-              Buscar por Género
+              Buscar por Libro
             </button>
             <button
               onClick={() => setActiveTab('saved')}
@@ -550,7 +543,7 @@ export default function App() {
             <div>
               <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', border: '1px solid #e9d5ff', padding: isMobile ? '22px 16px' : '36px 28px', marginBottom: '28px' }}>
                 <h2 style={{ fontSize: isMobile ? '1.5rem' : '1.9rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 8px 0' }}>
-                  Búsqueda por Género
+                  Búsqueda por Libro
                 </h2>
                 <p style={{ color: '#6b7280', margin: '0 0 20px 0', fontSize: '0.98rem' }}>
                   Buscá por título, autor, ISBN o género. Consultamos el stock indexado de las librerías y clasificamos el libro con Google Books API.
@@ -624,17 +617,23 @@ export default function App() {
                   {/* 1. In-Stock Offers from SQL inventory_stock */}
                   <div style={{ marginBottom: '32px' }}>
                     <h3 style={{ fontSize: isMobile ? '1.15rem' : '1.3rem', fontWeight: 800, color: '#4c1d95', marginBottom: '12px' }}>
-                      Copias en Stock Confirmado ({searchResult.in_stock_offers?.length || 0})
+                      Ejemplares en stock confirmado ({searchResult.in_stock_offers?.length || 0})
                     </h3>
                     {searchResult.in_stock_offers && searchResult.in_stock_offers.length > 0 ? (
                       <div style={{ ...CARD_GRID, gap: '16px' }}>
                         {searchResult.in_stock_offers.map((offer, idx) => (
-                          <div key={idx} style={{ backgroundColor: '#ffffff', borderRadius: '14px', border: '2px solid #c084fc', padding: '20px' }}>
+                          <div key={idx} style={{ backgroundColor: '#ffffff', borderRadius: '14px', border: '2px solid #c084fc', padding: isMobile ? '18px' : '20px', display: 'flex', flexDirection: 'column' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                               <div style={{ minWidth: 0 }}>
-                                <span style={{ fontSize: '0.72rem', backgroundColor: '#fef08a', color: '#854d0e', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
-                                  {offer.condition} · Stock: {offer.stock_quantity}
+                                {/* Most stores only publish in/out of stock (stored as 1): show a count only when it's real */}
+                                <span style={{ fontSize: '0.72rem', backgroundColor: '#dcfce7', color: '#166534', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                                  {offer.stock_quantity > 1 ? `${offer.stock_quantity} ejemplares disponibles` : 'Disponible'}
                                 </span>
+                                {offer.condition === 'Usado' && (
+                                  <span style={{ marginLeft: '6px', fontSize: '0.72rem', backgroundColor: '#fef08a', color: '#854d0e', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                                    Usado
+                                  </span>
+                                )}
                                 <h4 style={{ margin: '8px 0 2px 0', fontSize: '1.1rem', color: '#1f2937' }}>{offer.book_title}</h4>
                                 <p style={{ margin: 0, fontSize: '0.85rem', color: '#6b7280' }}>{offer.author}</p>
                               </div>
@@ -645,37 +644,36 @@ export default function App() {
                               )}
                             </div>
                             <hr style={{ border: 'none', borderTop: '1px solid #f3e8ff', margin: '12px 0' }} />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                              <div style={{ minWidth: 0 }}>
-                                <strong style={{ fontSize: '0.92rem', color: '#374151' }}>{offer.store_name}</strong>
-                                <p style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '2px 0 0 0', fontSize: '0.8rem', color: '#6b7280' }}>
-                                  <MapPin size={13} color="#c084fc" /> {offer.address} ({offer.department})
-                                </p>
-                              </div>
+                            <div style={{ minWidth: 0 }}>
+                              <strong style={{ fontSize: '0.92rem', color: '#374151' }}>{offer.store_name}</strong>
+                              <p style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', margin: '2px 0 0 0', fontSize: '0.8rem', color: '#6b7280' }}>
+                                <MapPin size={13} color="#c084fc" style={{ flexShrink: 0, marginTop: '2px' }} /> {offer.address} ({offer.department})
+                              </p>
+                            </div>
+
+                            {/* Footer always at the bottom; "Ver en tienda" always bottom-right */}
+                            <div style={{ marginTop: 'auto', paddingTop: '14px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                              <WhatsAppButton
+                                number={offer.whatsapp}
+                                message={`¡Hola ${offer.store_name}! Vi en LibrosUy que tienen "${offer.book_title}"${offer.author ? ` de ${offer.author}` : ''}${offer.price_uyu ? ` a $${offer.price_uyu} UYU` : ''}${offer.condition === 'Usado' ? ' (usado)' : ''}. ¿Sigue disponible?`}
+                              />
                               {offer.product_url && (
                                 <a
                                   href={offer.product_url}
                                   target="_blank"
                                   rel="noreferrer"
-                                  style={{ backgroundColor: '#7e22ce', color: '#ffffff', textDecoration: 'none', padding: isMobile ? '10px 16px' : '7px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700 }}
+                                  style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', minHeight: '36px', backgroundColor: '#7e22ce', color: '#ffffff', textDecoration: 'none', padding: '8px 14px', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 700, whiteSpace: 'nowrap' }}
                                 >
-                                  Ver en Tienda
+                                  Ver en tienda <ExternalLink size={14} />
                                 </a>
                               )}
-                            </div>
-                            <div style={{ marginTop: '12px' }}>
-                              <WhatsAppButton
-                                block={isMobile}
-                                number={offer.whatsapp}
-                                message={`¡Hola ${offer.store_name}! Vi en LibrosUy que tienen "${offer.book_title}"${offer.author ? ` de ${offer.author}` : ''}${offer.price_uyu ? ` a $${offer.price_uyu} UYU` : ''} (${offer.condition}). ¿Sigue disponible?`}
-                              />
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
                       <p style={{ color: '#6b7280', backgroundColor: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-                        Por ahora no hay copias indexadas en stock, pero las librerías de abajo podrían conseguirlo por encargo: escribiles por WhatsApp.
+                        Por ahora no encontramos ejemplares en stock, pero las librerías de abajo podrían conseguirlo por encargo.
                       </p>
                     )}
                   </div>
@@ -696,7 +694,6 @@ export default function App() {
                     {(() => {
                       const recs = searchResult.recommended_stores || [];
                       const unconfirmed = recs.filter((s) => s.stock_source && s.stock_source !== 'verified');
-                      const pendingSheets = unconfirmed.filter((s) => s.stock_source === 'pending_sheet').length;
                       if (unconfirmed.length === 0) return null;
                       return (
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', backgroundColor: '#fffbeb', border: '1px solid #fde68a', color: '#78350f', borderRadius: '12px', padding: '14px 16px', marginBottom: '18px', fontSize: '0.9rem', lineHeight: 1.45 }}>
@@ -704,11 +701,10 @@ export default function App() {
                           <div>
                             <strong>
                               {unconfirmed.length === 1
-                                ? '1 de estas librerías puede tener el libro, pero no podemos confirmar su stock.'
-                                : `${unconfirmed.length} de estas librerías pueden tener el libro, pero no podemos confirmar su stock.`}
+                                ? '1 de estas librerías puede tener el libro, pero todavía no tenemos su stock.'
+                                : `${unconfirmed.length} de estas librerías pueden tener el libro, pero todavía no tenemos su stock.`}
                             </strong>{' '}
-                            {pendingSheets > 0 && `${pendingSheets} todavía no nos enviaron su planilla de stock. `}
-                            Escribiles por WhatsApp antes de ir.
+                            Consultales antes de ir.
                           </div>
                         </div>
                       );
@@ -737,7 +733,7 @@ export default function App() {
                     Tu lista está vacía
                   </h3>
                   <p style={{ color: '#6b7280', maxWidth: '460px', margin: '0 auto 20px auto' }}>
-                    {isMobile ? 'Tocá' : 'Hacé clic en'} el ícono de marcador en cualquier librería de "Explorar Librerías" o "Buscar por Género" para guardarla acá.
+                    {isMobile ? 'Tocá' : 'Hacé clic en'} el ícono de marcador en cualquier librería de "Explorar Librerías" o "Buscar por Libro" para guardarla acá.
                   </p>
                   <button
                     onClick={() => setActiveTab('explore')}
