@@ -22,8 +22,11 @@ CREATE TABLE bookstores (
     sheet_url        TEXT,          -- Enlace CSV de la planilla de stock (librerías 'google_sheets')
     sync_frequency   VARCHAR(50) NOT NULL DEFAULT 'twice_weekly',
     featured         BOOLEAN NOT NULL DEFAULT false,
-    is_active        BOOLEAN NOT NULL DEFAULT true
+    is_active        BOOLEAN NOT NULL DEFAULT true,
+    osm_id           VARCHAR(30),   -- ID en OpenStreetMap (librerías descubiertas por seed_stores.py)
+    discovered_at    TIMESTAMPTZ    -- Cuándo la encontró la búsqueda semanal (NULL: cargada a mano)
 );
+CREATE UNIQUE INDEX ux_bookstores_osm_id ON bookstores (osm_id) WHERE osm_id IS NOT NULL;
 
 -- 2. BOOKS: catálogo maestro (deduplicado por ISBN cuando existe)
 CREATE TABLE books (
