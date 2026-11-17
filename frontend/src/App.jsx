@@ -77,18 +77,14 @@ const NO_STOCK_YET = {
   Icon: Clock,
   label: 'Aún no tenemos su stock',
   color: '#475569',
-  background: '#f1f5f9',
-  detail: 'Todavía no tenemos el stock de esta librería en LibrosUy.',
-  searchDetail: 'Todavía no tenemos su stock en LibrosUy: puede tener el libro.'
+  background: '#f1f5f9'
 };
 const STOCK_NOTICES = {
   verified: {
     Icon: RefreshCw,
     label: 'Stock en línea',
     color: '#166534',
-    background: '#dcfce7',
-    detail: 'Su stock se sincroniza con LibrosUy.',
-    searchDetail: 'No figura en su stock en línea, pero podés consultar si lo consiguen por encargo.'
+    background: '#dcfce7'
   },
   unverified: NO_STOCK_YET,
   pending_sheet: NO_STOCK_YET
@@ -103,17 +99,15 @@ function WhatsAppIcon({ size = 16 }) {
   );
 }
 
-function StockNotice({ source, inSearch = false }) {
+// Compact pill: just the phrase, no explanation
+function StockNotice({ source }) {
   const notice = STOCK_NOTICES[source];
   if (!notice) return null;
   const { Icon } = notice;
   return (
-    <div style={{ marginTop: '12px', backgroundColor: notice.background, color: notice.color, borderRadius: '8px', padding: '8px 10px', fontSize: '0.78rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
-        <Icon size={13} /> {notice.label}
-      </div>
-      <div style={{ marginTop: '2px', lineHeight: 1.35 }}>{inSearch ? notice.searchDetail : notice.detail}</div>
-    </div>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', backgroundColor: notice.background, color: notice.color, borderRadius: '9999px', padding: '4px 10px', fontSize: '0.74rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+      <Icon size={12} /> {notice.label}
+    </span>
   );
 }
 
@@ -137,7 +131,7 @@ function useIsMobile() {
 // Same min/max column width everywhere; min(...) keeps a single column on narrow phones
 const CARD_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '20px' };
 
-function WhatsAppButton({ number, message, block = false }) {
+function WhatsAppButton({ number, message, small = false }) {
   const link = buildWhatsAppLink(number, message);
   if (!link) return null; // No number yet: show nothing rather than a disabled button
 
@@ -148,22 +142,22 @@ function WhatsAppButton({ number, message, block = false }) {
       rel="noreferrer"
       aria-label="Consultar por WhatsApp"
       style={{
-        display: block ? 'flex' : 'inline-flex',
+        display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '7px',
-        padding: block ? '11px 16px' : '8px 14px',
-        minHeight: block ? '44px' : '36px',
+        gap: small ? '5px' : '7px',
+        padding: small ? '6px 12px' : '8px 14px',
+        minHeight: small ? '32px' : '36px',
         borderRadius: '9999px',
         backgroundColor: '#25d366',
         color: '#ffffff',
-        fontSize: '0.85rem',
+        fontSize: small ? '0.78rem' : '0.85rem',
         fontWeight: 700,
         textDecoration: 'none',
         whiteSpace: 'nowrap'
       }}
     >
-      <WhatsAppIcon size={block ? 18 : 16} /> Consultar aquí
+      <WhatsAppIcon size={small ? 14 : 16} /> Consultar aquí
     </a>
   );
 }
@@ -264,6 +258,9 @@ export default function App() {
 
   const savedStoresList = stores.filter((s) => savedStoreIds.includes(s.id));
 
+  // Store card grid: tighter on phones so more stores fit on screen
+  const storeGrid = isMobile ? { ...CARD_GRID, gap: '12px' } : CARD_GRID;
+
   // bookQuery: when the card is shown as a search recommendation, the message asks for that book
   const renderStoreCard = (store, bookQuery = null) => {
     const isSaved = savedStoreIds.includes(store.id);
@@ -277,7 +274,7 @@ export default function App() {
           backgroundColor: '#ffffff',
           borderRadius: '14px',
           border: '1px solid #e9d5ff',
-          padding: isMobile ? '18px' : '22px',
+          padding: isMobile ? '14px' : '18px',
           boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
           display: 'flex',
           flexDirection: 'column',
@@ -285,35 +282,34 @@ export default function App() {
         }}
       >
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '10px' }}>
-            <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#374151' }}>{store.name}</h4>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <button
-                onClick={() => toggleSaveStore(store.id)}
-                title={isSaved ? "Quitar de Mi Lista" : "Guardar en Mi Lista"}
-                style={{
-                  border: '1px solid #e9d5ff',
-                  backgroundColor: isSaved ? '#fef08a' : '#faf5ff',
-                  borderRadius: '8px',
-                  padding: isMobile ? '10px' : '6px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}
-                aria-label={isSaved ? "Quitar de Mi Lista" : "Guardar en Mi Lista"}
-              >
-                <Bookmark size={isMobile ? 18 : 15} color="#6b21a8" fill={isSaved ? "#6b21a8" : "none"} />
-              </button>
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+            <h4 style={{ margin: 0, fontSize: isMobile ? '1.02rem' : '1.1rem', fontWeight: 700, color: '#374151' }}>{store.name}</h4>
+            <button
+              onClick={() => toggleSaveStore(store.id)}
+              title={isSaved ? "Quitar de Mi Lista" : "Guardar en Mi Lista"}
+              style={{
+                border: '1px solid #e9d5ff',
+                backgroundColor: isSaved ? '#fef08a' : '#faf5ff',
+                borderRadius: '8px',
+                padding: isMobile ? '7px' : '5px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                flexShrink: 0
+              }}
+              aria-label={isSaved ? "Quitar de Mi Lista" : "Guardar en Mi Lista"}
+            >
+              <Bookmark size={isMobile ? 16 : 15} color="#6b21a8" fill={isSaved ? "#6b21a8" : "none"} />
+            </button>
           </div>
 
-          <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0', fontSize: '0.88rem', color: '#6b7280' }}>
-            <MapPin size={15} color="#c084fc" /> {store.address} ({store.department})
+          <p style={{ display: 'flex', alignItems: 'center', gap: '7px', margin: '3px 0', fontSize: '0.84rem', color: '#6b7280' }}>
+            <MapPin size={14} color="#c084fc" style={{ flexShrink: 0 }} /> {store.address} ({store.department})
           </p>
 
           {store.website ? (
-            <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0', fontSize: '0.88rem' }}>
-              <Globe size={15} color="#c084fc" />
+            <p style={{ display: 'flex', alignItems: 'center', gap: '7px', margin: '3px 0', fontSize: '0.84rem' }}>
+              <Globe size={14} color="#c084fc" style={{ flexShrink: 0 }} />
               <a href={`https://${store.website}`} target="_blank" rel="noreferrer" style={{ color: '#7e22ce', textDecoration: 'none', fontWeight: 600 }}>
                 {store.website}
               </a>
@@ -321,8 +317,8 @@ export default function App() {
           ) : null}
 
           {store.instagram && (
-            <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0', fontSize: '0.88rem' }}>
-              <Instagram size={15} color="#c084fc" />
+            <p style={{ display: 'flex', alignItems: 'center', gap: '7px', margin: '3px 0', fontSize: '0.84rem' }}>
+              <Instagram size={14} color="#c084fc" style={{ flexShrink: 0 }} />
               <a href={`https://www.instagram.com/${store.instagram}/`} target="_blank" rel="noreferrer" style={{ color: '#7e22ce', textDecoration: 'none', fontWeight: 600 }}>
                 @{store.instagram}
               </a>
@@ -330,19 +326,23 @@ export default function App() {
           )}
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '14px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '10px' }}>
           {(store.tags || []).map((tag, i) => (
-            <span key={i} style={{ fontSize: '0.73rem', backgroundColor: '#f3e8ff', color: '#7e22ce', padding: '4px 10px', borderRadius: '6px', fontWeight: 600 }}>
+            <span key={i} style={{ fontSize: '0.72rem', backgroundColor: '#f3e8ff', color: '#7e22ce', padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
               {tag}
             </span>
           ))}
         </div>
 
-        <StockNotice source={store.stock_source} inSearch={Boolean(bookQuery)} />
-
-        {store.whatsapp && (
-          <div style={{ marginTop: '14px' }}>
-            <WhatsAppButton number={store.whatsapp} message={whatsappMessage} block={isMobile} />
+        {/* Footer: stock pill and WhatsApp on one line (wraps only if it doesn't fit) */}
+        {(STOCK_NOTICES[store.stock_source] || store.whatsapp) && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
+            <StockNotice source={store.stock_source} />
+            {store.whatsapp && (
+              <span style={{ marginLeft: 'auto' }}>
+                <WhatsAppButton number={store.whatsapp} message={whatsappMessage} small />
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -560,7 +560,7 @@ export default function App() {
                 Directorio de Librerías ({filteredStores.length})
               </h3>
 
-              <div style={CARD_GRID}>
+              <div style={storeGrid}>
                 {filteredStores.map((store) => renderStoreCard(store))}
               </div>
             </div>
@@ -763,7 +763,7 @@ export default function App() {
                       );
                     })()}
 
-                    <div style={CARD_GRID}>
+                    <div style={storeGrid}>
                       {recs.map((store) => renderStoreCard(store, searchResult.query))}
                     </div>
                   </div>
@@ -820,7 +820,7 @@ export default function App() {
                       <Trash2 size={14} /> Vaciar Mi Lista
                     </button>
                   </div>
-                  <div style={CARD_GRID}>
+                  <div style={storeGrid}>
                     {savedStoresList.map((store) => renderStoreCard(store))}
                   </div>
                 </div>

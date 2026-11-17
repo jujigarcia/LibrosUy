@@ -35,7 +35,9 @@ function StoreMap({ stores = [], loading = false, compact = false }) {
         </span>
       </div>
 
-      <div style={{ height: compact ? '320px' : '440px', width: '100%', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e9d5ff', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+      {/* position + zIndex 0: own stacking context, so Leaflet's controls and attribution
+          (z-index 1000) stay under the sticky header instead of painting over it */}
+      <div style={{ position: 'relative', zIndex: 0, height: compact ? '320px' : '440px', width: '100%', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e9d5ff', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
         <MapContainer
           center={[-34.65, -56.05]}
           zoom={compact ? 6 : 8}
