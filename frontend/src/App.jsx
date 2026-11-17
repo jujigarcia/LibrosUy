@@ -430,7 +430,18 @@ export default function App() {
                 Libros
               </span>
               <span style={{ fontSize: isMobile ? '3.4rem' : '5.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', marginTop: isMobile ? '-16px' : '-30px', marginLeft: isMobile ? '36px' : '60px', letterSpacing: '-0.03em' }}>
-                <span style={{ fontSize: isMobile ? '2.8rem' : '4.5rem', marginRight: '8px', transform: 'translateY(5px)' }}>✳</span>Uy
+                {/* Drawn as SVG: the ✳ character renders as a green emoji on iOS */}
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  style={{ width: isMobile ? '2.2rem' : '3.6rem', height: isMobile ? '2.2rem' : '3.6rem', marginRight: isMobile ? '10px' : '14px', transform: 'translateY(5px)', flexShrink: 0 }}
+                >
+                  <path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4" />
+                </svg>Uy
               </span>
             </div>
 
@@ -441,9 +452,10 @@ export default function App() {
               lineHeight: '1.05',
               margin: 0,
               letterSpacing: '-0.03em',
-              textAlign: 'center'
+              textAlign: 'center',
+              textWrap: 'balance'
             }}>
-              La mejor forma de encontrar<br />tu libro
+              {isMobile ? 'La mejor forma de encontrar tu libro' : <>La mejor forma de encontrar<br />tu libro</>}
             </h1>
 
             {/* Phones: direct entry points (desktop uses the top navigation) */}

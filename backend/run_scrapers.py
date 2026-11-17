@@ -118,11 +118,26 @@ def main():
         print(f"No hay una fuente configurada para {args.store!r}. Usá --list.")
         return 1
 
-    conn = get_db_connection(direct=True)
-    try:
-        results = [run_source(conn, s, args.max_pages, args.delay) for s in sources]
-    finally:
-        conn.close()
+    # One database connection per store: if a long run drops the connection (network blip),
+    # only that store fails and the remaining ones still sync.
+    results = []
+    for source in sources:
+        try:
+            conn = get_db_connection(direct=True)
+        except Exception as e:
+            print(f"[{source['website']}] ERROR: no se pudo conectar a la base: {e}")
+            results.append(False)
+            continue
+        try:
+            results.append(run_source(conn, source, args.max_pages, args.delay))
+        except Exception as e:  # e.g. the DB connection died while logging the failure
+            print(f"[{source['website']}] ERROR: {e}")
+            results.append(False)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
     return 0 if all(results) else 1
 
 
