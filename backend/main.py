@@ -117,10 +117,16 @@ def get_google_book_info(query: str):
             return None, ()
 
         first_book = items[0].get("volumeInfo", {})
+        thumbnail = first_book.get("imageLinks", {}).get("thumbnail")
+        isbns = {i.get("type"): i.get("identifier") for i in first_book.get("industryIdentifiers", [])}
         book_meta = {
             "title": first_book.get("title", query),
             "authors": ", ".join(first_book.get("authors", ["Autor desconocido"])),
-            "thumbnail": first_book.get("imageLinks", {}).get("thumbnail"),
+            # Google serves http:// thumbnails; https avoids mixed-content blocking on the site
+            "thumbnail": thumbnail.replace("http://", "https://", 1) if thumbnail else None,
+            "publisher": first_book.get("publisher"),
+            "published_date": first_book.get("publishedDate"),
+            "isbn": isbns.get("ISBN_13") or isbns.get("ISBN_10"),
             "categories": first_book.get("categories", [])
         }
 
@@ -210,7 +216,7 @@ def search_book(title: str):
         cursor.execute("""
             SELECT b.title, b.author, b.isbn, s.name, s.address, s.department, s.website,
                    i.price_uyu, i.stock_quantity, i.condition, i.product_url,
-                   s.bookstore_id, s.whatsapp
+                   s.bookstore_id, s.whatsapp, b.cover_url
             FROM inventory_stock i
             JOIN books b ON i.book_id = b.book_id
             JOIN bookstores s ON i.bookstore_id = s.bookstore_id
@@ -236,7 +242,12 @@ def search_book(title: str):
                 "condition": r[9],
                 "product_url": r[10],
                 "store_id": r[11],
-                "whatsapp": r[12]
+                "whatsapp": r[12],
+                # Cover from the store's own listing: the edition it actually sells
+                "cover_url": r[13],
+                # Scrapers only store peso prices today (dollar prices are skipped); the field
+                # lets the UI show "U$D" once dollar prices are kept
+                "currency": "UYU"
             }
             for r in cursor.fetchall()
         ]

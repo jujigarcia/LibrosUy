@@ -112,6 +112,38 @@ function StockNotice({ source }) {
   );
 }
 
+// Prices: Uruguayan pesos as "$ 1.250" (decimals only when there are cents, "$ 552,50");
+// dollars as "U$D 25". Stored prices are pesos unless the API says otherwise.
+const formatPrice = (value, currency = 'UYU') => {
+  const amount = Number(value);
+  const cents = !Number.isInteger(amount);
+  const number = amount.toLocaleString('es-UY', { minimumFractionDigits: cents ? 2 : 0, maximumFractionDigits: 2 });
+  return `${currency === 'USD' ? 'U$D' : '$'} ${number}`;
+};
+
+// "RAYUELA EDICIÓN CONMEMORATIVA" -> true; "Rayuela" -> false
+const isAllCaps = (text) => /\p{L}/u.test(text || '') && text === text.toUpperCase();
+
+// Book cover with a fixed 2:3 box (so cards line up) and a neutral placeholder when there's
+// no image or it fails to load
+function BookCover({ src, title, width = 64 }) {
+  const [failed, setFailed] = useState(false);
+  const box = { width: `${width}px`, height: `${Math.round(width * 1.5)}px`, flexShrink: 0, borderRadius: '6px', overflow: 'hidden', backgroundColor: '#f3e8ff', border: '1px solid #e9d5ff' };
+  if (!src || failed) {
+    return (
+      <div style={{ ...box, display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-hidden="true">
+        <BookOpen size={Math.round(width / 2.6)} color="#c084fc" strokeWidth={1.5} />
+      </div>
+    );
+  }
+  return (
+    <div style={box}>
+      <img src={src} alt={`Portada de ${title}`} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+    </div>
+  );
+}
+
 // Phones (portrait and small landscape): bottom tab bar, stacked layouts, bigger tap targets
 const MOBILE_QUERY = '(max-width: 767px)';
 
@@ -651,6 +683,28 @@ export default function App() {
               {/* Search Results */}
               {searchResult && (
                 <div>
+                  {/* 0. Book identified by Google Books: cover, author, publisher and year */}
+                  {searchResult.book_metadata && (
+                    <div style={{ display: 'flex', gap: isMobile ? '14px' : '18px', alignItems: 'flex-start', backgroundColor: '#ffffff', border: '1px solid #e9d5ff', borderRadius: '16px', padding: isMobile ? '14px' : '18px', marginBottom: '28px' }}>
+                      <BookCover src={searchResult.book_metadata.thumbnail} title={searchResult.book_metadata.title} width={isMobile ? 72 : 88} />
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: '0.72rem', color: '#7e22ce', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Libro identificado
+                        </span>
+                        <h3 style={{ margin: '4px 0 2px 0', fontSize: isMobile ? '1.1rem' : '1.3rem', fontWeight: 800, color: '#1f2937' }}>
+                          {searchResult.book_metadata.title}
+                        </h3>
+                        <p style={{ margin: 0, fontSize: '0.9rem', color: '#4b5563' }}>{searchResult.book_metadata.authors}</p>
+                        <p style={{ margin: '6px 0 0 0', fontSize: '0.8rem', color: '#6b7280' }}>
+                          {[searchResult.book_metadata.publisher, (searchResult.book_metadata.published_date || '').slice(0, 4), searchResult.book_metadata.isbn && `ISBN ${searchResult.book_metadata.isbn}`].filter(Boolean).join(' · ')}
+                        </p>
+                        <p style={{ margin: '6px 0 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>
+                          Datos de Google Books. Cada librería puede tener otra edición: fijate en la portada de cada ejemplar.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* 1. In-Stock Offers from SQL inventory_stock */}
                   <div style={{ marginBottom: '32px' }}>
                     <h3 style={{ fontSize: isMobile ? '1.15rem' : '1.3rem', fontWeight: 800, color: '#4c1d95', marginBottom: '12px' }}>
@@ -661,24 +715,32 @@ export default function App() {
                         {searchResult.in_stock_offers.map((offer, idx) => (
                           <div key={idx} style={{ backgroundColor: '#ffffff', borderRadius: '14px', border: '2px solid #c084fc', padding: isMobile ? '18px' : '20px', display: 'flex', flexDirection: 'column' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                              <div style={{ minWidth: 0 }}>
+                              {/* Cover from the store's own listing = the edition that store sells */}
+                              <BookCover src={offer.cover_url} title={offer.book_title} width={isMobile ? 56 : 64} />
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                {/* lineHeight 1.2 + negative top margin: the top of the letters lines up
+                                    with the top of the cover. ALL-CAPS titles (as many stores publish
+                                    them) take a smaller size so long ones don't break into many lines */}
+                                <h4 style={{ margin: '-0.3em 0 2px 0', lineHeight: 1.2, fontSize: isAllCaps(offer.book_title) ? (isMobile ? '0.86rem' : '0.95rem') : (isMobile ? '1rem' : '1.1rem'), color: '#1f2937', overflowWrap: 'anywhere' }}>{offer.book_title}</h4>
+                                <p style={{ margin: 0, fontSize: '0.85rem', color: '#6b7280' }}>{offer.author}</p>
+                              </div>
+                              {/* Right column: small status pills in the top-right corner, price under them */}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
                                 {/* Most stores only publish in/out of stock (stored as 1): show a count only when it's real */}
-                                <span style={{ fontSize: '0.72rem', backgroundColor: '#dcfce7', color: '#166534', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
-                                  {offer.stock_quantity > 1 ? `${offer.stock_quantity} ejemplares disponibles` : 'Disponible'}
+                                <span style={{ fontSize: '0.66rem', backgroundColor: '#dcfce7', color: '#166534', padding: '2px 7px', borderRadius: '9999px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                  {offer.stock_quantity > 1 ? `${offer.stock_quantity} disponibles` : 'Disponible'}
                                 </span>
                                 {offer.condition === 'Usado' && (
-                                  <span style={{ marginLeft: '6px', fontSize: '0.72rem', backgroundColor: '#fef08a', color: '#854d0e', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                                  <span style={{ fontSize: '0.66rem', backgroundColor: '#fef08a', color: '#854d0e', padding: '2px 7px', borderRadius: '9999px', fontWeight: 700, whiteSpace: 'nowrap' }}>
                                     Usado
                                   </span>
                                 )}
-                                <h4 style={{ margin: '8px 0 2px 0', fontSize: '1.1rem', color: '#1f2937' }}>{offer.book_title}</h4>
-                                <p style={{ margin: 0, fontSize: '0.85rem', color: '#6b7280' }}>{offer.author}</p>
+                                {offer.price_uyu != null && (
+                                  <span style={{ marginTop: '4px', fontSize: isMobile ? '1.05rem' : '1.2rem', fontWeight: 800, color: '#4c1d95', whiteSpace: 'nowrap' }}>
+                                    {formatPrice(offer.price_uyu, offer.currency)}
+                                  </span>
+                                )}
                               </div>
-                              {offer.price_uyu && (
-                                <span style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 800, color: '#4c1d95', whiteSpace: 'nowrap' }}>
-                                  ${offer.price_uyu} UYU
-                                </span>
-                              )}
                             </div>
                             <hr style={{ border: 'none', borderTop: '1px solid #f3e8ff', margin: '12px 0' }} />
                             <div style={{ minWidth: 0 }}>
@@ -692,7 +754,7 @@ export default function App() {
                             <div style={{ marginTop: 'auto', paddingTop: '14px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
                               <WhatsAppButton
                                 number={offer.whatsapp}
-                                message={`¡Hola ${offer.store_name}! Vi en LibrosUy que tienen "${offer.book_title}"${offer.author ? ` de ${offer.author}` : ''}${offer.price_uyu ? ` a $${offer.price_uyu} UYU` : ''}${offer.condition === 'Usado' ? ' (usado)' : ''}. ¿Sigue disponible?`}
+                                message={`¡Hola ${offer.store_name}! Vi en LibrosUy que tienen "${offer.book_title}"${offer.author ? ` de ${offer.author}` : ''}${offer.price_uyu != null ? ` a ${formatPrice(offer.price_uyu, offer.currency)}` : ''}${offer.condition === 'Usado' ? ' (usado)' : ''}. ¿Sigue disponible?`}
                               />
                               {offer.product_url && (
                                 <a
