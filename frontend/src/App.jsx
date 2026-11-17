@@ -518,7 +518,7 @@ export default function App() {
       {activeTab !== 'home' && (
         <main style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '20px 16px calc(96px + env(safe-area-inset-bottom))' : '32px 20px' }}>
 
-          {/* TAB 1: EXPLORAR LIBRERÍAS (Map + 29-Store Directory) */}
+          {/* TAB 1: EXPLORAR LIBRERÍAS (Map + Store Directory) */}
           {activeTab === 'explore' && (
             <div>
               <h2 style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 16px 0' }}>
@@ -738,6 +738,16 @@ export default function App() {
                 Mi Lista de Librerías Guardadas ({savedStoresList.length})
               </h2>
 
+              <div
+                role="note"
+                style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', backgroundColor: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '12px', padding: isMobile ? '12px 14px' : '12px 16px', marginBottom: '20px', color: '#4c1d95', fontSize: '0.875rem', lineHeight: 1.5 }}
+              >
+                <Info size={18} color="#7e22ce" style={{ flexShrink: 0, marginTop: '1px' }} />
+                <span>
+                  Tu lista se guarda solo en este navegador y dispositivo. No se sincroniza con otros dispositivos, y se pierde si borrás los datos del sitio o usás modo incógnito.
+                </span>
+              </div>
+
               {savedStoresList.length === 0 ? (
                 <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', border: '1px solid #e9d5ff', padding: isMobile ? '40px 20px' : '60px 20px', textAlign: 'center' }}>
                   <Bookmark size={40} color="#854d0e" style={{ margin: '0 auto 20px auto', fill: '#fef08a' }} />
@@ -751,7 +761,7 @@ export default function App() {
                     onClick={() => setActiveTab('explore')}
                     style={{ backgroundColor: '#7e22ce', color: '#ffffff', border: 'none', borderRadius: '10px', padding: '10px 22px', fontWeight: 700, cursor: 'pointer' }}
                   >
-                    Explorar las 29 Librerías
+                    Explorar las {stores.length} librerías
                   </button>
                 </div>
               ) : (
