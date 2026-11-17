@@ -778,7 +778,7 @@ export default function App() {
           {activeTab === 'saved' && (
             <div>
               <h2 style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 800, color: '#4c1d95', margin: '0 0 20px 0' }}>
-                Mi Lista de Librerías Guardadas ({savedStoresList.length})
+                Librerías guardadas
               </h2>
 
               <div
