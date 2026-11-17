@@ -47,7 +47,14 @@ class PoliteSession:
             self._last_request = time.monotonic()
             # Scrapers never need a session; Shopify rate-limits bots that keep its cookies
             self.session.cookies.clear()
-            resp = self.session.request(method, url, params=params, json=json, timeout=60)
+            try:
+                resp = self.session.request(method, url, params=params, json=json, timeout=60)
+            except (requests.ConnectionError, requests.Timeout):
+                # Dropped connection (site or local network): wait and retry
+                if attempt == retries:
+                    raise
+                time.sleep(15 * (attempt + 1))
+                continue
             if resp.status_code == 429 or resp.status_code >= 500:
                 if attempt == retries:
                     resp.raise_for_status()
