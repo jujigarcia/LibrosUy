@@ -405,7 +405,7 @@ export default function App() {
                 padding: 0
               }}
             >
-              Mi Lista ({savedStoreIds.length})
+              Mi Lista
             </button>
           </nav>
           )}
@@ -809,8 +809,8 @@ export default function App() {
             { id: 'home', label: 'Inicio', Icon: Home },
             { id: 'explore', label: 'Librerías', Icon: MapPin },
             { id: 'genres', label: 'Buscar', Icon: Search },
-            { id: 'saved', label: 'Mi Lista', Icon: Bookmark, badge: savedStoreIds.length }
-          ].map(({ id, label, Icon, badge }) => {
+            { id: 'saved', label: 'Mi Lista', Icon: Bookmark }
+          ].map(({ id, label, Icon }) => {
             const active = activeTab === id;
             return (
               <button
@@ -835,11 +835,6 @@ export default function App() {
               >
                 <Icon size={22} strokeWidth={active ? 2.4 : 1.8} />
                 {label}
-                {badge > 0 && (
-                  <span style={{ position: 'absolute', top: '6px', left: '50%', marginLeft: '8px', minWidth: '17px', height: '17px', padding: '0 4px', borderRadius: '9999px', backgroundColor: '#7e22ce', color: '#ffffff', fontSize: '0.62rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {badge}
-                  </span>
-                )}
               </button>
             );
           })}
