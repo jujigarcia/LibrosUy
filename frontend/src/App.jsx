@@ -39,7 +39,20 @@ const FALLBACK_STORES = [
 // defaults to the local FastAPI server for development.
 const API_URL = (process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 
-const QUICK_GENRES = ["Ficción", "Fantasía", "Manga", "Cómics", "Juvenil", "Historia", "Usados", "Poesía"];
+const QUICK_GENRES = ["Ficción", "Fantasía", "Manga", "Cómics", "Juvenil", "Historia", "Académicos", "Usados", "Poesía"];
+
+// Umbrella genres with no store tag of their own (mirrors GENRE_GROUPS in backend/main.py)
+const GENRE_GROUPS = {
+  'Académicos': ['Educativos', 'Textos Estudio', 'Medicina']
+};
+
+const normalizeText = (text) => (text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// Same rule as the backend: the store's specialty contains the genre (or one of its group's tags)
+const storeMatchesGenre = (store, genre) => {
+  const specialty = normalizeText(store.specialty || (store.tags || []).join(', '));
+  return (GENRE_GROUPS[genre] || [genre]).some((tag) => specialty.includes(normalizeText(tag)));
+};
 
 // Normalizes a Uruguayan phone number to the international format wa.me expects (e.g. 59899123456)
 const toWhatsAppNumber = (raw) => {
@@ -166,6 +179,8 @@ export default function App() {
   const [bookQuery, setBookQuery] = useState('');
   const [bookSearchLoading, setBookSearchLoading] = useState(false);
   const [searchResult, setSearchResult] = useState(null);
+  // Genre chip selected in the results to narrow the recommended stores (null = all)
+  const [genreFilter, setGenreFilter] = useState(null);
 
   // Saved Stores (Mi Lista) persisted in localStorage
   const [savedStoreIds, setSavedStoreIds] = useState(() => {
@@ -210,6 +225,7 @@ export default function App() {
     if (!q) return;
     setBookQuery(q);
     setBookSearchLoading(true);
+    setGenreFilter(null);
 
     try {
       const res = await fetch(`${API_URL}/api/search?title=${encodeURIComponent(q)}`);
@@ -220,8 +236,8 @@ export default function App() {
       // Offline fallback: match against local 29 stores by tag/specialty,
       // or recommend general-catalog stores that can usually order any title
       const matched = stores.filter((s) =>
-        (s.specialty || '').toLowerCase().includes(q.toLowerCase()) ||
-        s.name.toLowerCase().includes(q.toLowerCase())
+        storeMatchesGenre(s, q) ||
+        normalizeText(s.name).includes(normalizeText(q))
       );
       const general = stores.filter((s) => (s.specialty || '').includes('Catálogo General'));
       setSearchResult({
@@ -690,21 +706,46 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* 2. Recommended Bookstores by Genre */}
+                  {/* 2. Recommended Bookstores by Genre (genre chips filter the list) */}
+                  {(() => {
+                    const allRecs = searchResult.recommended_stores || [];
+                    const recs = genreFilter ? allRecs.filter((s) => storeMatchesGenre(s, genreFilter)) : allRecs;
+                    return (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
                       <h3 style={{ fontSize: isMobile ? '1.15rem' : '1.3rem', fontWeight: 800, color: '#4c1d95', margin: 0 }}>
-                        Librerías que podrían conseguirlo por encargo ({searchResult.recommended_stores?.length || 0})
+                        Librerías que podrían conseguirlo por encargo ({recs.length})
                       </h3>
-                      {(searchResult.matched_genres || []).map((g, i) => (
-                        <span key={i} style={{ backgroundColor: '#fef08a', color: '#854d0e', padding: '4px 12px', borderRadius: '9999px', fontSize: '0.78rem', fontWeight: 700 }}>
-                          Género: {g}
-                        </span>
-                      ))}
+                      {(searchResult.matched_genres || []).map((g) => {
+                        const active = genreFilter === g;
+                        return (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => setGenreFilter(active ? null : g)}
+                            aria-pressed={active}
+                            title={active ? 'Quitar filtro' : `Ver solo librerías de ${g}`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              backgroundColor: active ? '#854d0e' : '#fef08a',
+                              color: active ? '#fef08a' : '#854d0e',
+                              border: '1px solid #854d0e',
+                              padding: isMobile ? '7px 14px' : '4px 12px',
+                              borderRadius: '9999px',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Género: {g}{active && <span aria-hidden="true">✕</span>}
+                          </button>
+                        );
+                      })}
                     </div>
 
                     {(() => {
-                      const recs = searchResult.recommended_stores || [];
                       const unconfirmed = recs.filter((s) => s.stock_source && s.stock_source !== 'verified');
                       if (unconfirmed.length === 0) return null;
                       return (
@@ -723,9 +764,11 @@ export default function App() {
                     })()}
 
                     <div style={CARD_GRID}>
-                      {(searchResult.recommended_stores || []).map((store) => renderStoreCard(store, searchResult.query))}
+                      {recs.map((store) => renderStoreCard(store, searchResult.query))}
                     </div>
                   </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

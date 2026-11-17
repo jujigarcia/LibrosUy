@@ -44,6 +44,22 @@ CATEGORY_MAP = {
 # Genre keywords a user may type directly (e.g. "Manga" or "Usados")
 DIRECT_GENRE_KEYWORDS = ["Manga", "Cómics", "Fantasía", "Historia", "Usados", "Juvenil", "Poesía", "Ficción", "Romance"]
 
+# Umbrella genres with no store tag of their own: they match stores tagged with any of
+# these specialties ("Escolares" stays a separate genre on purpose).
+GENRE_GROUPS = {
+    "Académicos": ["Educativos", "Textos Estudio", "Medicina"],
+}
+
+# Accent-free prefixes in the query that select an umbrella genre ("académico", "universitarios"...)
+GENRE_GROUP_KEYWORDS = {
+    "Académicos": ["academ", "universitari"],
+}
+
+
+def expand_genre(tag):
+    """'Académicos' -> its store specialties; any other tag -> itself."""
+    return GENRE_GROUPS.get(tag, [tag])
+
 app = FastAPI(title="LibrosUy API", description="Agregador de librerías y stock de libros en Uruguay.")
 
 # Comma-separated list of allowed frontend origins in production, e.g.
@@ -258,14 +274,18 @@ def search_book(title: str):
         for keyword in DIRECT_GENRE_KEYWORDS:
             if strip_accents(keyword) in normalized_query:
                 matched_tags.add(keyword)
+        for group, prefixes in GENRE_GROUP_KEYWORDS.items():
+            if any(p in normalized_query for p in prefixes):
+                matched_tags.add(group)
 
         # 2d. Nothing identified: general-catalog stores can usually order any title
         if not matched_tags:
             matched_tags.add(GENERAL_TAG)
 
         matched_tags = sorted(matched_tags)
-        conditions = " OR ".join(["unaccent(s.specialty) ILIKE unaccent(%s)" for _ in matched_tags])
-        params = [f"%{escape_like(tag)}%" for tag in matched_tags]
+        specialties = [s for tag in matched_tags for s in expand_genre(tag)]
+        conditions = " OR ".join(["unaccent(s.specialty) ILIKE unaccent(%s)" for _ in specialties])
+        params = [f"%{escape_like(s)}%" for s in specialties]
         # Stores that can't confirm stock come first: they may have the book even if it's not indexed
         cursor.execute(f"""
             SELECT * FROM (
