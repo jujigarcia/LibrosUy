@@ -718,10 +718,12 @@ export default function App() {
                               {/* Cover from the store's own listing = the edition that store sells */}
                               <BookCover src={offer.cover_url} title={offer.book_title} width={isMobile ? 56 : 64} />
                               <div style={{ minWidth: 0, flex: 1 }}>
-                                {/* lineHeight 1.2 + negative top margin: the top of the letters lines up
-                                    with the top of the cover. ALL-CAPS titles (as many stores publish
-                                    them) take a smaller size so long ones don't break into many lines */}
-                                <h4 style={{ margin: '-0.3em 0 2px 0', lineHeight: 1.2, fontSize: isAllCaps(offer.book_title) ? (isMobile ? '0.86rem' : '0.95rem') : (isMobile ? '1rem' : '1.1rem'), color: '#1f2937', overflowWrap: 'anywhere' }}>{offer.book_title}</h4>
+                                {/* Cover and "Disponible" pill start at the same top; the title's first
+                                    line is centered on the pill (pill ≈ 17.6px tall → center 8.8px; the
+                                    letters' center sits 0.66em below the top margin at lineHeight 1.2).
+                                    ALL-CAPS titles (as many stores publish them) take a smaller size so
+                                    long ones don't break into many lines */}
+                                <h4 style={{ margin: 'calc(8.8px - 0.66em) 0 2px 0', lineHeight: 1.2, fontSize: isAllCaps(offer.book_title) ? (isMobile ? '0.86rem' : '0.95rem') : (isMobile ? '1rem' : '1.1rem'), color: '#1f2937', overflowWrap: 'anywhere' }}>{offer.book_title}</h4>
                                 <p style={{ margin: 0, fontSize: '0.85rem', color: '#6b7280' }}>{offer.author}</p>
                               </div>
                               {/* Right column: small status pills in the top-right corner, price under them */}
