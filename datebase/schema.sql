@@ -4,7 +4,7 @@
 
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
-DROP TABLE IF EXISTS sync_logs, inventory_stock, books, bookstores CASCADE;
+DROP TABLE IF EXISTS events, sync_logs, inventory_stock, books, bookstores CASCADE;
 
 -- 1. BOOKSTORES: librerías y cómo se sincroniza su stock
 CREATE TABLE bookstores (
@@ -66,6 +66,17 @@ CREATE TABLE sync_logs (
     executed_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX ix_sync_logs_store_time ON sync_logs (bookstore_id, executed_at DESC);
+
+-- 5. EVENTS: uso anónimo del sitio (sin IP ni datos personales) para medir la utilidad
+CREATE TABLE events (
+    event_id      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    event_type    VARCHAR(30) NOT NULL,  -- 'search' | 'whatsapp_click' | 'store_click'
+    query         TEXT,                  -- texto buscado (normalizado a minúsculas)
+    bookstore_id  INTEGER REFERENCES bookstores (bookstore_id) ON DELETE SET NULL,
+    results_count INTEGER,               -- búsquedas: ejemplares en stock encontrados
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_events_type_time ON events (event_type, created_at DESC);
 
 -- LAS 29 LIBRERÍAS (IDs fijos: el frontend y "Mi Lista" los usan)
 INSERT INTO bookstores (bookstore_id, name, website, whatsapp, instagram, specialty, address, department,

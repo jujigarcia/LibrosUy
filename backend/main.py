@@ -4,9 +4,10 @@ import unicodedata
 from functools import lru_cache
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+import analytics
 from db import escape_like, get_db_connection
 
 logger = logging.getLogger("librosuy")
@@ -148,6 +149,9 @@ def map_categories_to_tags(google_categories):
     return matched_tags
 
 
+app.include_router(analytics.router)
+
+
 @app.get("/")
 def read_root():
     return {"message": "LibrosUy API operational."}
@@ -196,7 +200,7 @@ def get_stores():
 
 
 @app.get("/api/search")
-def search_book(title: str):
+def search_book(title: str, background_tasks: BackgroundTasks = None):
     """
     1. Searches local pre-indexed stock (`inventory_stock` + `books`).
     2. Recommends stores that could order the book, based on the genre from the
@@ -326,6 +330,10 @@ def search_book(title: str):
 
         cursor.close()
         conn.close()
+
+        # Anonymous usage stats, written after the response is sent (see analytics.py)
+        if background_tasks is not None:
+            background_tasks.add_task(analytics.log_search, query, len(in_stock_offers))
 
         return {
             "query": query,

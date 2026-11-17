@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Globe, BookOpen, Bookmark, Trash2, RefreshCw, Clock, Instagram, Info, Home, ExternalLink } from 'lucide-react';
 import StoreMap from './StoreMap';
+import { trackClick } from './analytics';
 
 // Fallback list of all 29 bookstores so the UI works even before the backend is started
 const FALLBACK_STORES = [
@@ -164,7 +165,7 @@ function useIsMobile() {
 // Same min/max column width everywhere; min(...) keeps a single column on narrow phones
 const CARD_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: '20px' };
 
-function WhatsAppButton({ number, message, small = false }) {
+function WhatsAppButton({ number, message, small = false, onClick }) {
   const link = buildWhatsAppLink(number, message);
   if (!link) return null; // No number yet: show nothing rather than a disabled button
 
@@ -174,6 +175,7 @@ function WhatsAppButton({ number, message, small = false }) {
       target="_blank"
       rel="noreferrer"
       aria-label="Consultar por WhatsApp"
+      onClick={onClick}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -381,7 +383,7 @@ export default function App() {
             <StockNotice source={store.stock_source} />
             {store.whatsapp && (
               <span style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                <WhatsAppButton number={store.whatsapp} message={whatsappMessage} small />
+                <WhatsAppButton number={store.whatsapp} message={whatsappMessage} small onClick={() => trackClick('whatsapp_click', store.id, bookQuery)} />
               </span>
             )}
           </div>
@@ -567,6 +569,8 @@ export default function App() {
             margin: 0
           }}>
             STOCK ACTUALIZADO DEPENDIENDO DE LAS LIBRERIAS
+            {' · '}
+            <a href="#privacidad" style={{ color: 'inherit' }}>Privacidad</a>
           </p>
         </main>
       )}
@@ -755,6 +759,7 @@ export default function App() {
                             {/* Footer always at the bottom; "Ver en tienda" always bottom-right */}
                             <div style={{ marginTop: 'auto', paddingTop: '14px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
                               <WhatsAppButton
+                                onClick={() => trackClick('whatsapp_click', offer.store_id, searchResult.query)}
                                 number={offer.whatsapp}
                                 message={`¡Hola ${offer.store_name}! Vi en LibrosUy que tienen "${offer.book_title}"${offer.author ? ` de ${offer.author}` : ''}${offer.price_uyu != null ? ` a ${formatPrice(offer.price_uyu, offer.currency)}` : ''}${offer.condition === 'Usado' ? ' (usado)' : ''}. ¿Sigue disponible?`}
                               />
@@ -763,6 +768,7 @@ export default function App() {
                                   href={offer.product_url}
                                   target="_blank"
                                   rel="noreferrer"
+                                  onClick={() => trackClick('store_click', offer.store_id, searchResult.query)}
                                   style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', minHeight: '36px', backgroundColor: '#7e22ce', color: '#ffffff', textDecoration: 'none', padding: '8px 14px', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 700, whiteSpace: 'nowrap' }}
                                 >
                                   Ver en tienda <ExternalLink size={14} />
@@ -900,6 +906,9 @@ export default function App() {
               )}
             </div>
           )}
+          <p style={{ marginTop: '40px', textAlign: 'center', fontSize: '0.8rem', color: '#9ca3af' }}>
+            <a href="#privacidad" style={{ color: '#7e22ce' }}>Privacidad</a>
+          </p>
         </main>
       )}
 
