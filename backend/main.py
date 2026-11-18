@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 import unicodedata
 from functools import lru_cache
 
@@ -118,6 +119,20 @@ def _book_from_volume(info: dict, query: str) -> dict:
     }
 
 
+QUERY_STOPWORDS = {"el", "la", "los", "las", "un", "una", "de", "del", "y", "en", "con", "por", "para", "que", "libro"}
+
+
+def _matches_query(info: dict, query: str) -> bool:
+    """Keeps a Google result only if its title or authors contain a word of the search.
+    Avoids unrelated books (e.g. Italian titles for "la tregua", since "tregua" is also Italian).
+    ISBN searches are trusted as they are."""
+    words = [w for w in re.findall(r"[a-z0-9]+", strip_accents(query)) if len(w) >= 3 and w not in QUERY_STOPWORDS]
+    if not words or re.fullmatch(r"[\d\-xX ]{10,17}", query.strip()):
+        return True
+    text = strip_accents(f"{info.get('title', '')} {info.get('subtitle', '')} {' '.join(info.get('authors', []))}")
+    return any(w in text for w in words)
+
+
 def _book_key(info: dict) -> str:
     """Groups editions of the same book: title without subtitle + first author, no accents."""
     title = strip_accents(info.get("title", "")).split(":")[0].strip()
@@ -132,15 +147,22 @@ def get_google_book_info(query: str):
     books (editions of the same title grouped), e.g. several books when searching an author.
     Cached in memory to save API quota on repeated searches."""
     url = "https://www.googleapis.com/books/v1/volumes"
-    params = {"q": query, "maxResults": 15, "printType": "books"}
+    params = {"q": query, "maxResults": 15, "printType": "books", "langRestrict": "es"}
     if GOOGLE_BOOKS_API_KEY:
         params["key"] = GOOGLE_BOOKS_API_KEY
     try:
-        response = requests.get(url, params=params, timeout=5)
-        if response.status_code != 200:
-            logger.warning("Google Books respondió %s para %r", response.status_code, query)
-            return None, (), ()
-        items = response.json().get("items", [])
+        # Spanish editions first (Uruguayan stores); any language only if there are none
+        items = []
+        for lang in ("es", None):
+            if lang is None:
+                params.pop("langRestrict", None)
+            response = requests.get(url, params=params, timeout=5)
+            if response.status_code != 200:
+                logger.warning("Google Books respondió %s para %r", response.status_code, query)
+                return None, (), ()
+            items = [i for i in response.json().get("items", []) if _matches_query(i.get("volumeInfo", {}), query)]
+            if items:
+                break
         if not items:
             return None, (), ()
 
