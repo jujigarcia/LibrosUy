@@ -436,7 +436,7 @@ export default function App() {
                 padding: 0
               }}
             >
-              Explorar Librerías ({stores.length})
+              Explorar Librerías
             </button>
             <button
               onClick={() => setActiveTab('genres')}

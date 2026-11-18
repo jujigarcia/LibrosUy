@@ -30,9 +30,11 @@ function StoreMap({ stores = [], loading = false, compact = false }) {
         <h3 style={{ margin: 0, color: '#1f2937', fontSize: compact ? '1.05rem' : undefined }}>
           Mapa interactivo Uruguay
         </h3>
-        <span style={{ fontSize: compact ? '0.78rem' : '0.875rem', color: '#6b7280', fontWeight: 600 }}>
-          {loading ? 'Cargando ubicaciones...' : `${geolocatedStores.length} librerías geolocalizadas en el mapa`}
-        </span>
+        {loading && (
+          <span style={{ fontSize: compact ? '0.78rem' : '0.875rem', color: '#6b7280', fontWeight: 600 }}>
+            Cargando ubicaciones...
+          </span>
+        )}
       </div>
 
       {/* position + zIndex 0: own stacking context, so Leaflet's controls and attribution
