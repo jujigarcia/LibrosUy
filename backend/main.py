@@ -140,8 +140,13 @@ def _matches_query(info: dict, query: str) -> bool:
     title_words = _meaningful_words(info.get("title", ""))
     if title_words[:len(query_words)] == query_words:
         return True
-    author_words = set(_meaningful_words(" ".join(info.get("authors", []))))
-    return all(w in author_words for w in query_words)
+    # Author match only for person-like names (≤ 4 words): avoids organisations such as
+    # "Power for the Powerless, inc" matching a search for "powerless"
+    for author in info.get("authors", []):
+        author_words = _meaningful_words(author)
+        if len(author_words) <= 4 and all(w in author_words for w in query_words):
+            return True
+    return False
 
 
 def _book_key(info: dict) -> str:
