@@ -134,10 +134,10 @@ def _matches_query(info: dict, query: str) -> bool:
 
 
 def _book_key(info: dict) -> str:
-    """Groups editions of the same book: title without subtitle + first author, no accents."""
-    title = strip_accents(info.get("title", "")).split(":")[0].strip()
-    author = strip_accents((info.get("authors") or [""])[0]).strip()
-    return f"{title}|{author}"
+    """Groups editions of the same book by title (without subtitle, accents or punctuation).
+    Author is left out: Google spells it differently across editions ("Benedetti, Mario")."""
+    title = strip_accents(info.get("title", "")).split(":")[0]
+    return " ".join(re.findall(r"[a-z0-9]+", title))
 
 
 @lru_cache(maxsize=512)
@@ -166,6 +166,8 @@ def get_google_book_info(query: str):
         if not items:
             return None, (), ()
 
+        # Spanish editions first (stable sort keeps Google's relevance order otherwise)
+        items.sort(key=lambda i: i.get("volumeInfo", {}).get("language") != "es")
         candidates, seen = [], set()
         for item in items:
             info = item.get("volumeInfo", {})
