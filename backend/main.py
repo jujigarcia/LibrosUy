@@ -123,17 +123,25 @@ def _book_from_volume(info: dict, query: str) -> dict:
 QUERY_STOPWORDS = {"el", "la", "los", "las", "un", "una", "de", "del", "y", "en", "con", "por", "para", "que", "libro"}
 
 
+def _meaningful_words(text: str) -> list:
+    """Lowercase words without accents, dropping articles/prepositions ("la", "de", ...)."""
+    return [w for w in re.findall(r"[a-z0-9]+", strip_accents(text)) if w not in QUERY_STOPWORDS]
+
+
 def _matches_query(info: dict, query: str) -> bool:
-    """Keeps a Google result only if its title/authors contain ALL the words of the search.
-    Avoids unrelated books (e.g. Italian titles for "la tregua", since "tregua" is also Italian).
-    ISBN searches are trusted as they are."""
-    words = [w for w in re.findall(r"[a-z0-9]+", strip_accents(query)) if len(w) >= 3 and w not in QUERY_STOPWORDS]
-    if not words or re.fullmatch(r"[\d\-xX ]{10,17}", query.strip()):
+    """Keeps a Google result only when it really is what was searched:
+    - the TITLE starts with the searched words ("powerless" -> "Powerless", not
+      "The Power of the Powerless"; "harry potter" -> "Harry Potter y el misterio..."), or
+    - the search is the AUTHOR ("mario benedetti" -> his books).
+    Whole words only; subtitle ignored. ISBN searches are trusted as they are."""
+    query_words = _meaningful_words(query)
+    if not query_words or re.fullmatch(r"[\d\-xX ]{10,17}", query.strip()):
         return True
-    text = strip_accents(f"{info.get('title', '')} {info.get('subtitle', '')} {' '.join(info.get('authors', []))}")
-    # Every searched word must appear as a whole word (not inside another word)
-    text_words = set(re.findall(r"[a-z0-9]+", text))
-    return all(w in text_words for w in words)
+    title_words = _meaningful_words(info.get("title", ""))
+    if title_words[:len(query_words)] == query_words:
+        return True
+    author_words = set(_meaningful_words(" ".join(info.get("authors", []))))
+    return all(w in author_words for w in query_words)
 
 
 def _book_key(info: dict) -> str:
