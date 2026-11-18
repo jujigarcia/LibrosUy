@@ -202,6 +202,9 @@ function WhatsAppButton({ number, message, small = false, onClick }) {
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const isMobile = useIsMobile();
+
+  // Lets other components (e.g. the Sugerencias form) know which tab is open
+  useEffect(() => { document.body.dataset.tab = activeTab; }, [activeTab]);
   const [stores, setStores] = useState(FALLBACK_STORES);
   const [loadingStores, setLoadingStores] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -396,6 +399,9 @@ export default function App() {
     <div className="screen-min-height" style={{
       fontFamily: 'system-ui, -apple-system, sans-serif',
       position: 'relative',
+      // Column layout: the footer (Privacidad) sits at the bottom edge even when the content is short
+      display: 'flex',
+      flexDirection: 'column',
       background: activeTab === 'home'
         ? 'radial-gradient(circle at 30% 50%, #fdf4ff 0%, #fbcfe8 35%, #e9d5ff 70%, #ecfccb 100%)'
         : '#f9fafb'
@@ -577,7 +583,7 @@ export default function App() {
 
       {/* INNER TABS */}
       {activeTab !== 'home' && (
-        <main style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '20px 16px calc(96px + env(safe-area-inset-bottom))' : '32px 20px' }}>
+        <main style={{ flex: '1 0 auto', width: '100%', maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '20px 16px 8px' : '32px 20px 8px' }}>
 
           {/* TAB 1: EXPLORAR LIBRERÍAS (Map + Store Directory) */}
           {activeTab === 'explore' && (
@@ -939,10 +945,14 @@ export default function App() {
               )}
             </div>
           )}
-          <p style={{ marginTop: '40px', textAlign: 'center', fontSize: '0.8rem', color: '#9ca3af' }}>
-            <a href="#privacidad" style={{ color: '#7e22ce' }}>Privacidad</a>
-          </p>
         </main>
+      )}
+
+      {/* Footer pinned to the bottom of the page (the home page has its own line with the link) */}
+      {activeTab !== 'home' && (
+        <footer style={{ textAlign: 'center', fontSize: '0.8rem', padding: isMobile ? '16px 16px calc(76px + env(safe-area-inset-bottom))' : '20px 20px 24px' }}>
+          <a href="#privacidad" style={{ color: '#7e22ce' }}>Privacidad</a>
+        </footer>
       )}
 
       {/* Phones: bottom tab bar (Android/iOS pattern), above the home indicator */}

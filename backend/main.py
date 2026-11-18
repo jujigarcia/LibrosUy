@@ -9,6 +9,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 import analytics
+import feedback
 from db import escape_like, get_db_connection
 
 logger = logging.getLogger("librosuy")
@@ -123,14 +124,16 @@ QUERY_STOPWORDS = {"el", "la", "los", "las", "un", "una", "de", "del", "y", "en"
 
 
 def _matches_query(info: dict, query: str) -> bool:
-    """Keeps a Google result only if its title or authors contain a word of the search.
+    """Keeps a Google result only if its title/authors contain ALL the words of the search.
     Avoids unrelated books (e.g. Italian titles for "la tregua", since "tregua" is also Italian).
     ISBN searches are trusted as they are."""
     words = [w for w in re.findall(r"[a-z0-9]+", strip_accents(query)) if len(w) >= 3 and w not in QUERY_STOPWORDS]
     if not words or re.fullmatch(r"[\d\-xX ]{10,17}", query.strip()):
         return True
     text = strip_accents(f"{info.get('title', '')} {info.get('subtitle', '')} {' '.join(info.get('authors', []))}")
-    return any(w in text for w in words)
+    # Every searched word must appear as a whole word (not inside another word)
+    text_words = set(re.findall(r"[a-z0-9]+", text))
+    return all(w in text_words for w in words)
 
 
 def _book_key(info: dict) -> str:
@@ -199,6 +202,7 @@ def map_categories_to_tags(google_categories):
 
 
 app.include_router(analytics.router)
+app.include_router(feedback.router)
 
 
 @app.get("/")

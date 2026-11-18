@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/react';
 import App from './App';
 import StatsPage from './StatsPage';
 import PrivacyPage from './PrivacyPage';
+import FeedbackButton from './FeedbackButton';
 import './index.css';
 
 // Secondary pages live under a hash so they work on any static host without server routes:
@@ -19,7 +20,12 @@ function Root() {
 
   if (hash === '#estadisticas') return <StatsPage />;
   if (hash === '#privacidad') return <PrivacyPage />;
-  return <App />;
+  return (
+    <>
+      <App />
+      <FeedbackButton />
+    </>
+  );
 }
 
 const container = document.getElementById('root');

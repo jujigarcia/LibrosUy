@@ -37,6 +37,14 @@ export default function PrivacyPage() {
         </div>
 
         <div style={section}>
+          <h2 style={h2}>Sugerencias</h2>
+          <p style={p}>
+            Si nos escribís con el botón «Sugerencias», guardamos tu mensaje y nos llega por correo. El email es opcional:
+            solo lo pedimos si querés que te respondamos, y lo usamos únicamente para eso.
+          </p>
+        </div>
+
+        <div style={section}>
           <h2 style={h2}>Tu lista de librerías</h2>
           <p style={p}>
             Las librerías que guardás en «Mi Lista» quedan solo en tu navegador (almacenamiento local). No se envían a nuestros servidores.

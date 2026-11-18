@@ -4,7 +4,7 @@
 
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
-DROP TABLE IF EXISTS events, sync_logs, inventory_stock, books, bookstores CASCADE;
+DROP TABLE IF EXISTS feedback, events, sync_logs, inventory_stock, books, bookstores CASCADE;
 
 -- 1. BOOKSTORES: librerías y cómo se sincroniza su stock
 CREATE TABLE bookstores (
@@ -77,6 +77,16 @@ CREATE TABLE events (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX ix_events_type_time ON events (event_type, created_at DESC);
+
+-- 6. FEEDBACK: mensajes del botón "Sugerencias" (también se envían por email, ver backend/feedback.py)
+CREATE TABLE feedback (
+    feedback_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    message     TEXT NOT NULL,
+    contact     TEXT,                          -- email opcional que deja la persona para recibir respuesta
+    page        VARCHAR(50),                   -- sección del sitio desde la que escribió
+    emailed     BOOLEAN NOT NULL DEFAULT false,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- LAS 29 LIBRERÍAS (IDs fijos: el frontend y "Mi Lista" los usan)
 INSERT INTO bookstores (bookstore_id, name, website, whatsapp, instagram, specialty, address, department,
