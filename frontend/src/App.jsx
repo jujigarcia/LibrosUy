@@ -687,8 +687,41 @@ export default function App() {
               {/* Search Results */}
               {searchResult && (
                 <div>
-                  {/* 0. Book identified by Google Books: cover, author, publisher and year */}
-                  {searchResult.book_metadata && (
+                  {/* 0a. Several books identified (e.g. searching an author): swipeable row; tap one to search it */}
+                  {(searchResult.book_candidates || []).length > 1 && (
+                    <div style={{ backgroundColor: '#ffffff', border: '1px solid #e9d5ff', borderRadius: '16px', padding: isMobile ? '14px 0' : '16px 0', marginBottom: '28px' }}>
+                      <div style={{ padding: isMobile ? '0 14px' : '0 18px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.72rem', color: '#7e22ce', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Libros identificados ({searchResult.book_candidates.length})
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Tocá uno para buscarlo en las librerías</span>
+                      </div>
+                      <div className="scroll-row" style={{ display: 'flex', gap: '12px', padding: isMobile ? '12px 14px 2px' : '12px 18px 2px' }}>
+                        {searchResult.book_candidates.map((book, i) => (
+                          <button
+                            key={`${book.title}-${i}`}
+                            onClick={() => handleBookSearch(book.title)}
+                            title={`Buscar "${book.title}"`}
+                            style={{ flex: '0 0 auto', width: isMobile ? '112px' : '128px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+                          >
+                            <BookCover src={book.thumbnail} title={book.title} width={isMobile ? 72 : 80} />
+                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1f2937', lineHeight: 1.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {book.title}
+                            </span>
+                            <span style={{ fontSize: '0.74rem', color: '#6b7280', lineHeight: 1.2, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {[book.authors, (book.published_date || '').slice(0, 4)].filter(Boolean).join(' · ')}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                      <p style={{ margin: '8px 0 0 0', padding: isMobile ? '0 14px' : '0 18px', fontSize: '0.75rem', color: '#9ca3af' }}>
+                        Datos de Google Books. Cada librería puede tener otra edición: fijate en la portada de cada ejemplar.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 0b. A single book identified by Google Books: cover, author, publisher and year */}
+                  {searchResult.book_metadata && (searchResult.book_candidates || []).length <= 1 && (
                     <div style={{ display: 'flex', gap: isMobile ? '14px' : '18px', alignItems: 'flex-start', backgroundColor: '#ffffff', border: '1px solid #e9d5ff', borderRadius: '16px', padding: isMobile ? '14px' : '18px', marginBottom: '28px' }}>
                       <BookCover src={searchResult.book_metadata.thumbnail} title={searchResult.book_metadata.title} width={isMobile ? 72 : 88} />
                       <div style={{ minWidth: 0 }}>
@@ -742,7 +775,7 @@ export default function App() {
                                   </span>
                                 )}
                                 {offer.price_uyu != null && (
-                                  <span style={{ marginTop: '4px', fontSize: isMobile ? '1.05rem' : '1.2rem', fontWeight: 800, color: '#4c1d95', whiteSpace: 'nowrap' }}>
+                                  <span style={{ marginTop: '4px', fontSize: isMobile ? '1.05rem' : '1.2rem', fontWeight: 600, color: '#4c1d95', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                                     {formatPrice(offer.price_uyu, offer.currency)}
                                   </span>
                                 )}

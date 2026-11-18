@@ -27,7 +27,8 @@ function StoreMap({ stores = [], loading = false, compact = false }) {
   return (
     <div style={{ marginTop: compact ? '12px' : '20px', marginBottom: compact ? '20px' : '30px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '4px 12px', marginBottom: '10px' }}>
-        <h3 style={{ margin: 0, color: '#1f2937', fontSize: compact ? '1.05rem' : undefined }}>
+        {/* Small label (same style as "Libro identificado"): the map itself is the content */}
+        <h3 style={{ margin: 0, color: '#7e22ce', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Mapa interactivo Uruguay
         </h3>
         {loading && (

@@ -18,6 +18,9 @@ GOOGLE_BOOKS_API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY")
 
 GENERAL_TAG = "Catálogo General"
 
+# Distinct books shown under "Libros identificados" (e.g. several titles when searching an author)
+MAX_BOOK_CANDIDATES = 6
+
 # Genre detection from our own catalog: keep at most this many genres, each covering at
 # least this share of the matching books
 MAX_CATALOG_GENRES = 2
@@ -100,44 +103,66 @@ def split_tags(specialty):
     return [t.strip() for t in (specialty or "").split(",") if t.strip()]
 
 
+def _book_from_volume(info: dict, query: str) -> dict:
+    thumbnail = info.get("imageLinks", {}).get("thumbnail")
+    isbns = {i.get("type"): i.get("identifier") for i in info.get("industryIdentifiers", [])}
+    return {
+        "title": info.get("title", query),
+        "authors": ", ".join(info.get("authors", ["Autor desconocido"])),
+        # Google serves http:// thumbnails; https avoids mixed-content blocking on the site
+        "thumbnail": thumbnail.replace("http://", "https://", 1) if thumbnail else None,
+        "publisher": info.get("publisher"),
+        "published_date": info.get("publishedDate"),
+        "isbn": isbns.get("ISBN_13") or isbns.get("ISBN_10"),
+        "categories": info.get("categories", [])
+    }
+
+
+def _book_key(info: dict) -> str:
+    """Groups editions of the same book: title without subtitle + first author, no accents."""
+    title = strip_accents(info.get("title", "")).split(":")[0].strip()
+    author = strip_accents((info.get("authors") or [""])[0]).strip()
+    return f"{title}|{author}"
+
+
 @lru_cache(maxsize=512)
 def get_google_book_info(query: str):
-    """Queries Google Books API to identify book metadata and categories.
+    """Queries Google Books to identify the searched book(s) and their categories.
+    Returns (main_book, candidates, categories): candidates are up to MAX_BOOK_CANDIDATES distinct
+    books (editions of the same title grouped), e.g. several books when searching an author.
     Cached in memory to save API quota on repeated searches."""
     url = "https://www.googleapis.com/books/v1/volumes"
-    params = {"q": query, "maxResults": 3}
+    params = {"q": query, "maxResults": 15, "printType": "books"}
     if GOOGLE_BOOKS_API_KEY:
         params["key"] = GOOGLE_BOOKS_API_KEY
     try:
         response = requests.get(url, params=params, timeout=5)
         if response.status_code != 200:
             logger.warning("Google Books respondió %s para %r", response.status_code, query)
-            return None, ()
+            return None, (), ()
         items = response.json().get("items", [])
         if not items:
-            return None, ()
+            return None, (), ()
 
-        first_book = items[0].get("volumeInfo", {})
-        thumbnail = first_book.get("imageLinks", {}).get("thumbnail")
-        isbns = {i.get("type"): i.get("identifier") for i in first_book.get("industryIdentifiers", [])}
-        book_meta = {
-            "title": first_book.get("title", query),
-            "authors": ", ".join(first_book.get("authors", ["Autor desconocido"])),
-            # Google serves http:// thumbnails; https avoids mixed-content blocking on the site
-            "thumbnail": thumbnail.replace("http://", "https://", 1) if thumbnail else None,
-            "publisher": first_book.get("publisher"),
-            "published_date": first_book.get("publishedDate"),
-            "isbn": isbns.get("ISBN_13") or isbns.get("ISBN_10"),
-            "categories": first_book.get("categories", [])
-        }
-
-        all_cats = set()
+        candidates, seen = [], set()
         for item in items:
+            info = item.get("volumeInfo", {})
+            key = _book_key(info)
+            if not info.get("title") or key in seen:
+                continue
+            seen.add(key)
+            candidates.append(_book_from_volume(info, query))
+            if len(candidates) >= MAX_BOOK_CANDIDATES:
+                break
+
+        # Categories only from the top results: they decide which stores are recommended
+        all_cats = set()
+        for item in items[:3]:
             all_cats.update(item.get("volumeInfo", {}).get("categories", []))
-        return book_meta, tuple(all_cats)
+        return (candidates[0] if candidates else None), tuple(candidates), tuple(all_cats)
     except Exception as e:
         logger.warning("Error consultando Google Books para %r: %s", query, e)
-        return None, ()
+        return None, (), ()
 
 
 def map_categories_to_tags(google_categories):
@@ -281,7 +306,7 @@ def search_book(title: str, background_tasks: BackgroundTasks = None):
                 matched_tags.add(tag)
 
         # 2b. Google Books categories
-        book_meta, google_cats = get_google_book_info(query)
+        book_meta, book_candidates, google_cats = get_google_book_info(query)
         matched_tags.update(map_categories_to_tags(google_cats))
 
         # 2c. Genre keywords typed directly by the user
@@ -338,6 +363,7 @@ def search_book(title: str, background_tasks: BackgroundTasks = None):
         return {
             "query": query,
             "book_metadata": book_meta,
+            "book_candidates": list(book_candidates),
             "matched_genres": matched_tags,
             "in_stock_offers": in_stock_offers,
             "recommended_stores": recommended_stores
