@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { MapPin, Tag } from 'lucide-react';
+import { trackClick } from './analytics';
 
 // Fix Leaflet marker icon paths in Webpack/React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -65,18 +66,21 @@ function StoreMap({ stores = [], loading = false, compact = false }) {
                   <p style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0', fontSize: '0.82rem', color: '#374151' }}>
                     <MapPin size={13} color="#c084fc" /> {store.address} ({store.department})
                   </p>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0', fontSize: '0.78rem', color: '#6b21a8' }}>
-                    <Tag size={13} color="#c084fc" /> {store.specialty}
-                  </p>
-                  {store.website && (
+                  {/* Catalog line = link to the store's website (violet); grey, not clickable, without one */}
+                  {store.website ? (
                     <a
                       href={`https://${store.website}`}
                       target="_blank"
                       rel="noreferrer"
-                      style={{ display: 'inline-block', marginTop: '6px', fontSize: '0.8rem', color: '#7e22ce', fontWeight: 700 }}
+                      onClick={() => trackClick('store_click', store.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0', fontSize: '0.78rem', color: '#7e22ce', textDecoration: 'none' }}
                     >
-                      Visitar {store.website} →
+                      <Tag size={13} color="#c084fc" /> {store.specialty}
                     </a>
+                  ) : (
+                    <p style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0', fontSize: '0.78rem', color: '#9ca3af' }}>
+                      <Tag size={13} color="#d1d5db" /> {store.specialty}
+                    </p>
                   )}
                 </div>
               </Popup>
